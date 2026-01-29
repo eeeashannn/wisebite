@@ -1,0 +1,150 @@
+.pantry-item-card {
+  background: white;
+  border-radius: 12px;
+  padding: 1rem;
+  border: 1px solid #e0e0e0;
+  position: relative;
+  transition: transform 0.2s, box-shadow 0.2s;
+  display: flex;
+  flex-direction: column;
+}
+
+.pantry-item-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.status-badge-top {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 1;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.35rem 0.7rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.status-badge.fresh {
+  background-color: #d5f4e6;
+  color: #27ae60;
+}
+
+.status-badge.expiring-soon {
+  background-color: #fef5e7;
+  color: #d68910;
+}
+
+.status-badge.expired {
+  background-color: #fadbd8;
+  color: #c0392b;
+}
+
+.status-icon {
+  font-size: 0.875rem;
+}
+
+.item-content {
+  display: flex;
+  gap: 1rem;
+  margin-top: 2.5rem;
+  margin-bottom: 1rem;
+}
+
+.item-image {
+  flex-shrink: 0;
+  width: 80px;
+  height: 80px;
+  border-radius: 10px;
+  background: #e8f5e9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.item-image-placeholder {
+  font-size: 2.5rem;
+  line-height: 1;
+}
+
+.item-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.item-name {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #2c3e50;
+  margin: 0;
+}
+
+.item-meta {
+  font-size: 0.875rem;
+  color: #7f8c8d;
+  margin: 0;
+}
+
+.item-expiry {
+  margin: 0;
+}
+
+.expiry-text {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.expiry-text.fresh {
+  color: #27ae60;
+}
+
+.expiry-text.expiring {
+  color: #d68910;
+}
+
+.expiry-text.expired {
+  color: #c0392b;
+}
+
+.mark-consumed-btn {
+  width: 100%;
+  background: transparent;
+  border: 2px solid #27ae60;
+  color: #27ae60;
+  border-radius: 8px;
+  padding: 0.6rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: auto;
+}
+
+.mark-consumed-btn:hover {
+  background: #27ae60;
+  color: white;
+}
+
+@media (max-width: 768px) {
+  .item-content {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .item-image {
+    width: 100px;
+    height: 100px;
+  }
+}

@@ -1,0 +1,21 @@
+.tip-of-the-day {
+  background: #fef9e7;
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin-top: auto;
+  margin-bottom: 1.5rem;
+}
+
+.tip-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #2c3e50;
+  margin: 0 0 0.75rem 0;
+}
+
+.tip-content {
+  font-size: 0.875rem;
+  color: #34495e;
+  line-height: 1.5;
+  margin: 0;
+}

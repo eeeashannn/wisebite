@@ -1,0 +1,36 @@
+.dashboard {
+  padding: 2rem;
+  max-width: 1400px;
+}
+
+.loading,
+.error,
+.empty-state {
+  text-align: center;
+  padding: 3rem;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.loading {
+  color: #27ae60;
+  font-size: 1.2rem;
+}
+
+.error {
+  color: #e74c3c;
+}
+
+.error h2 {
+  margin-bottom: 1rem;
+}
+
+.empty-state {
+  color: #7f8c8d;
+}
+
+.empty-state h2 {
+  color: #2c3e50;
+  margin-bottom: 0.5rem;
+}

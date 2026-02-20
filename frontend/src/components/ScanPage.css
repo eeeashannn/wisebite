@@ -19,6 +19,42 @@
   margin-bottom: 2rem;
 }
 
+.scan-camera-wrapper {
+  background: #111;
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+  min-height: 280px;
+}
+
+.scan-camera-mount {
+  width: 100%;
+  min-height: 260px;
+}
+
+.scan-camera-mount video {
+  width: 100%;
+  display: block;
+}
+
+.scan-camera-wrapper .scan-start-camera-btn {
+  margin: 1rem;
+}
+
+.scan-camera-error,
+.scan-camera-loading {
+  margin: 0.5rem 1rem 0;
+  font-size: 0.95rem;
+}
+
+.scan-camera-error {
+  color: #e74c3c;
+}
+
+.scan-camera-loading {
+  color: #27ae60;
+}
+
 .scan-camera-placeholder {
   background: white;
   border-radius: 12px;

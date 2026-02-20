@@ -1,24 +1,23 @@
 import React, { useEffect, useState } from "react";
-import Dashboard from "./components/Dashboard";
-import PantryList from "./components/PantryList";
+import HomePage from "./components/HomePage";
 import ScanPage from "./components/ScanPage";
 import RecipesPage from "./components/RecipesPage";
 import ProduceAIPage from "./components/ProduceAIPage";
 import AddItemModal from "./components/AddItemModal";
 import BrandLogo from "./components/BrandLogo";
-import { IconHome, IconBox, IconCamera, IconChefHat, IconApple } from "./components/Icons";
+import { IconHome, IconCamera, IconChefHat, IconApple } from "./components/Icons";
 import "./App.css";
 
 const API_BASE_URL = "http://127.0.0.1:5000";
 
-const VIEWS = { dashboard: "dashboard", pantry: "pantry", scan: "scan", recipes: "recipes", produce: "produce" };
+const VIEWS = { home: "home", scan: "scan", recipes: "recipes", produce: "produce" };
 
 function App() {
   const [items, setItems] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [activeView, setActiveView] = useState(VIEWS.dashboard);
+  const [activeView, setActiveView] = useState(VIEWS.home);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const fetchData = async () => {
@@ -96,26 +95,24 @@ function App() {
   return (
     <div className="App">
       <header className="topnav">
-        <div className="topnav-brand">
+        <button
+          type="button"
+          className="topnav-brand"
+          onClick={() => setActiveView(VIEWS.home)}
+          aria-label="Go to Home"
+        >
           <span className="brand-icon">
             <BrandLogo />
           </span>
           <span className="brand-title">WiseBite</span>
-        </div>
+        </button>
         <nav className="nav-tabs" aria-label="Main navigation">
           <button
-            className={`nav-tab ${activeView === VIEWS.dashboard ? "active" : ""}`}
-            onClick={() => setActiveView(VIEWS.dashboard)}
+            className={`nav-tab ${activeView === VIEWS.home ? "active" : ""}`}
+            onClick={() => setActiveView(VIEWS.home)}
           >
             <span className="nav-tab-icon"><IconHome size={20} /></span>
-            <span>Dashboard</span>
-          </button>
-          <button
-            className={`nav-tab ${activeView === VIEWS.pantry ? "active" : ""}`}
-            onClick={() => setActiveView(VIEWS.pantry)}
-          >
-            <span className="nav-tab-icon"><IconBox size={20} /></span>
-            <span>Pantry</span>
+            <span>Home</span>
           </button>
           <button
             className={`nav-tab ${activeView === VIEWS.scan ? "active" : ""}`}
@@ -142,11 +139,8 @@ function App() {
       </header>
 
       <main className="main-content">
-        {activeView === VIEWS.dashboard && (
-          <Dashboard {...common} onGenerateRecipeClick={() => setActiveView(VIEWS.recipes)} />
-        )}
-        {activeView === VIEWS.pantry && (
-          <PantryList {...common} onDeleteItem={handleDeleteItem} />
+        {activeView === VIEWS.home && (
+          <HomePage {...common} onDeleteItem={handleDeleteItem} />
         )}
         {activeView === VIEWS.scan && (
           <ScanPage {...common} />

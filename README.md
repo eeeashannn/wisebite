@@ -83,7 +83,23 @@ The frontend will be available at `http://localhost:3000`
 - `GET /` - API information and available endpoints
 - `GET /items` - Retrieve all pantry items
 - `GET /items/<id>` - Retrieve a specific item by ID
+- `POST /items` - Add a pantry item
+- `DELETE /items/<id>` - Delete a pantry item
 - `GET /stats` - Get dashboard statistics (total, fresh, expiring soon, expired)
+- `GET /barcode/<code>` - Look up product by barcode (see Barcode lookup below)
+
+### Barcode lookup
+
+The app resolves barcodes using two sources:
+
+1. **FatSecret Platform API** (optional, recommended): Nutrition-focused food database with high barcode match rate. Requires a free API key from [FatSecret Platform](https://platform.fatsecret.com). Set these environment variables before starting the backend:
+   - `FATSECRET_CLIENT_ID` – your FatSecret OAuth2 Client ID  
+   - `FATSECRET_CLIENT_SECRET` – your FatSecret OAuth2 Client Secret  
+   If both are set, barcode lookups use FatSecret first.
+
+2. **Open Food Facts** (fallback): Free, no API key. Used when FatSecret is not configured or when FatSecret does not find the product (e.g. error 211). Provides product name, category, and image.
+
+The Scan page uses the device camera (via the `html5-qrcode` library) to scan barcodes, or you can enter the barcode number manually.
 
 ## 🔹 Project Structure
 

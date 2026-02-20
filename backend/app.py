@@ -1,14 +1,34 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from datetime import datetime
+import os
+import base64
 import requests
 
 app = Flask(__name__)
 CORS(app)
 
-# In-memory pantry storage (no hardcoded data)
-PANTRY_ITEMS = []
-_NEXT_ID = 1
+# Optional: FatSecret Platform API (barcode + nutrition). If set, used first; else Open Food Facts.
+FATSECRET_CLIENT_ID = os.environ.get("FATSECRET_CLIENT_ID", "").strip()
+FATSECRET_CLIENT_SECRET = os.environ.get("FATSECRET_CLIENT_SECRET", "").strip()
+_FATSECRET_TOKEN = None
+
+# In-memory pantry storage with sample items for testing
+from datetime import date, timedelta
+
+def _sample_items():
+    today = date.today()
+    return [
+        {"id": 1, "name": "Milk", "category": "Dairy", "expiry": (today - timedelta(days=2)).strftime("%Y-%m-%d"), "quantity": 1, "unit": "Liters", "notes": "", "image_url": None, "barcode": None, "added_date": (today - timedelta(days=7)).strftime("%Y-%m-%d")},
+        {"id": 2, "name": "Bread", "category": "Bakery", "expiry": (today + timedelta(days=1)).strftime("%Y-%m-%d"), "quantity": 1, "unit": "Pieces", "notes": "", "image_url": None, "barcode": None, "added_date": (today - timedelta(days=2)).strftime("%Y-%m-%d")},
+        {"id": 3, "name": "Eggs", "category": "Dairy", "expiry": (today + timedelta(days=5)).strftime("%Y-%m-%d"), "quantity": 12, "unit": "Pieces", "notes": "", "image_url": None, "barcode": None, "added_date": (today - timedelta(days=1)).strftime("%Y-%m-%d")},
+        {"id": 4, "name": "Chicken Breast", "category": "Meat", "expiry": (today - timedelta(days=1)).strftime("%Y-%m-%d"), "quantity": 500, "unit": "Grams", "notes": "", "image_url": None, "barcode": None, "added_date": (today - timedelta(days=3)).strftime("%Y-%m-%d")},
+        {"id": 5, "name": "Spinach", "category": "Vegetables", "expiry": (today + timedelta(days=2)).strftime("%Y-%m-%d"), "quantity": 1, "unit": "Packages", "notes": "", "image_url": None, "barcode": None, "added_date": today.strftime("%Y-%m-%d")},
+        {"id": 6, "name": "Pasta Sauce", "category": "Pantry", "expiry": (today + timedelta(days=30)).strftime("%Y-%m-%d"), "quantity": 2, "unit": "Bottles", "notes": "", "image_url": None, "barcode": None, "added_date": (today - timedelta(days=5)).strftime("%Y-%m-%d")},
+    ]
+
+PANTRY_ITEMS = _sample_items()
+_NEXT_ID = 7
 
 def _next_id():
     global _NEXT_ID
@@ -49,7 +69,7 @@ def home():
             "/items": "GET all, POST add",
             "/items/<id>": "GET one, DELETE one",
             "/stats": "GET dashboard statistics",
-            "/barcode/<code>": "GET product by barcode (Open Food Facts)",
+            "/barcode/<code>": "GET product by barcode (FatSecret if configured, else Open Food Facts)",
             "/recipes/generate": "POST generate recipe",
             "/produce/scan": "POST AI produce freshness (estimate)",
         }
@@ -109,21 +129,91 @@ def get_stats():
     return jsonify(_compute_stats(PANTRY_ITEMS))
 
 
-# ---------- Barcode (Open Food Facts) ----------
-@app.route('/barcode/<barcode>')
-def lookup_barcode(barcode):
+# ---------- Barcode: FatSecret (optional) + Open Food Facts (fallback) ----------
+def _normalize_barcode_gtin13(barcode):
+    """FatSecret expects GTIN-13: 13 digits. UPC-A is 12 digits -> pad with leading 0."""
+    s = "".join(c for c in str(barcode) if c.isdigit())
+    if len(s) == 12:
+        return "0" + s
+    if len(s) == 13:
+        return s
+    return s  # pass through; API may still accept
+
+def _fatsecret_get_token():
+    """OAuth2 client_credentials token for FatSecret. Cached in process."""
+    global _FATSECRET_TOKEN
+    if not FATSECRET_CLIENT_ID or not FATSECRET_CLIENT_SECRET:
+        return None
+    if _FATSECRET_TOKEN:
+        return _FATSECRET_TOKEN
+    try:
+        auth = base64.b64encode(
+            f"{FATSECRET_CLIENT_ID}:{FATSECRET_CLIENT_SECRET}".encode()
+        ).decode()
+        r = requests.post(
+            "https://oauth.fatsecret.com/connect/token",
+            headers={
+                "Authorization": f"Basic {auth}",
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
+            data={"grant_type": "client_credentials", "scope": "barcode"},
+            timeout=10,
+        )
+        r.raise_for_status()
+        _FATSECRET_TOKEN = r.json().get("access_token")
+        return _FATSECRET_TOKEN
+    except Exception:
+        return None
+
+def _lookup_barcode_fatsecret(barcode):
+    """Call FatSecret food.find_id_for_barcode.v2. Returns our shape or None."""
+    token = _fatsecret_get_token()
+    if not token:
+        return None
+    gtin = _normalize_barcode_gtin13(barcode)
+    if len(gtin) != 13:
+        return None
+    try:
+        r = requests.get(
+            "https://platform.fatsecret.com/rest/food/barcode/find-by-id/v2",
+            headers={"Authorization": f"Bearer {token}"},
+            params={"barcode": gtin, "format": "json"},
+            timeout=8,
+        )
+        if r.status_code != 200:
+            return None
+        data = r.json()
+        food = data.get("food")
+        if not food:
+            return None
+        name = food.get("food_name") or "Unknown"
+        brand = food.get("brand_name", "").strip()
+        if brand:
+            name = f"{brand} {name}".strip()
+        return {
+            "found": True,
+            "name": name,
+            "category": "Other",
+            "image_url": None,
+            "brands": brand,
+            "quantity": "",
+        }
+    except Exception:
+        return None
+
+def _lookup_barcode_openfoodfacts(barcode):
+    """Open Food Facts barcode lookup. Returns our shape or None."""
     try:
         url = f"https://world.openfoodfacts.org/api/v0/product/{barcode}.json"
         r = requests.get(url, timeout=5)
         r.raise_for_status()
         data = r.json()
         if data.get("status") != 1 or not data.get("product"):
-            return jsonify({"found": False, "error": "Product not found"}), 404
+            return None
         p = data["product"]
         product_name = p.get("product_name") or p.get("product_name_en") or "Unknown"
         categories = p.get("categories", "") or p.get("categories_tags", [])
         category_str = categories.split(",")[0].strip() if isinstance(categories, str) else (categories[0] if categories else "Other")
-        # Map OFF categories to our categories
         cat_map = {"Dairy": "Dairy", "Meat": "Meat", "Vegetables": "Vegetables", "Fruits": "Fruits",
                    "Bakery": "Bakery", "Beverages": "Beverages", "Snacks": "Snacks", "Frozen": "Frozen"}
         category = "Other"
@@ -131,18 +221,26 @@ def lookup_barcode(barcode):
             if k.lower() in category_str.lower():
                 category = v
                 break
-        return jsonify({
+        return {
             "found": True,
             "name": product_name,
             "category": category,
             "image_url": p.get("image_url") or p.get("image_front_url"),
             "brands": p.get("brands", ""),
             "quantity": p.get("quantity", ""),
-        })
-    except requests.RequestException as e:
-        return jsonify({"found": False, "error": str(e)}), 502
-    except Exception as e:
-        return jsonify({"found": False, "error": str(e)}), 500
+        }
+    except Exception:
+        return None
+
+@app.route('/barcode/<barcode>')
+def lookup_barcode(barcode):
+    # Try FatSecret first if configured, then Open Food Facts
+    result = _lookup_barcode_fatsecret(barcode)
+    if result is None:
+        result = _lookup_barcode_openfoodfacts(barcode)
+    if result is None:
+        return jsonify({"found": False, "error": "Product not found"}), 404
+    return jsonify(result)
 
 
 # ---------- Recipes (advanced: dietary, time, cuisine) ----------

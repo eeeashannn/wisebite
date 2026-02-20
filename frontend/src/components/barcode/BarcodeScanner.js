@@ -43,7 +43,7 @@ function BarcodeScanner({ onProductFound, onClose }) {
   return (
     <div className="barcode-scanner-box">
       <h3 className="barcode-title">Smart Barcode Scan</h3>
-      <p className="barcode-desc">Enter barcode or scan to auto-fill product details (Open Food Facts).</p>
+      <p className="barcode-desc">Enter barcode or scan to auto-fill product details (FatSecret or Open Food Facts).</p>
       <form onSubmit={handleLookup} className="barcode-form">
         <input
           type="text"

@@ -1,0 +1,44 @@
+.home-page {
+  padding: 0;
+}
+
+.home-page-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #2c3e50;
+  margin: 0 0 0.25rem 0;
+}
+
+.home-page-subtitle {
+  color: #7f8c8d;
+  margin: 0 0 2rem 0;
+  font-size: 1rem;
+}
+
+.home-pantry-section {
+  margin-top: 2.5rem;
+}
+
+.pantry-section-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #2c3e50;
+  margin: 0 0 0.25rem 0;
+}
+
+.loading,
+.error {
+  text-align: center;
+  padding: 3rem;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.error {
+  color: #e74c3c;
+}
+
+.error h2 {
+  margin-bottom: 0.5rem;
+}

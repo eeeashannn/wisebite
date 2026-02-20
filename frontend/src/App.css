@@ -21,6 +21,15 @@
   display: flex;
   align-items: center;
   gap: 0.6rem;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+}
+
+.topnav-brand:hover {
+  opacity: 0.9;
 }
 
 .brand-icon {

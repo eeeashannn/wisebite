@@ -14,11 +14,11 @@ export const getDaysRemaining = (expiryDate) => {
 
 export const getStatus = (daysRemaining) => {
   if (daysRemaining < 0) {
-    return { label: 'Expired', className: 'expired', urgency: 'high' };
+    return { label: 'Expired', className: 'expired', urgency: 'high', iconKey: 'clock' };
   } else if (daysRemaining <= 3) {
-    return { label: 'Expiring Soon', className: 'expiring-soon', urgency: 'medium' };
+    return { label: 'Expiring Soon', className: 'expiring-soon', urgency: 'medium', iconKey: 'warning' };
   } else {
-    return { label: 'Fresh', className: 'fresh', urgency: 'low' };
+    return { label: 'Fresh', className: 'fresh', urgency: 'low', iconKey: 'check' };
   }
 };
 

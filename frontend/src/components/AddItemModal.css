@@ -58,6 +58,39 @@
   color: #2c3e50;
 }
 
+.add-item-tabs {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0 2rem 1rem;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: #f5f7fa;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+
+.tab-btn.active {
+  background: #27ae60;
+  color: white;
+  border-color: #27ae60;
+}
+
+.tab-btn:not(.active):hover {
+  background: #ecf0f1;
+}
+
+.tab-btn svg {
+  flex-shrink: 0;
+}
+
 .add-item-form {
   padding: 2rem;
 }

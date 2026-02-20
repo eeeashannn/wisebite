@@ -1,86 +1,99 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import PantryItem from './PantryItem';
-import AddItemModal from './AddItemModal';
+import { IconSearch } from './Icons';
+import { sortItemsByExpiry } from '../utils/dateUtils';
 import './PantryList.css';
 
-function PantryList({ items, loading, error, onMarkConsumed, onAddItemClick, isModalOpen, onCloseModal, onAddItem }) {
+const CATEGORIES = ['All Categories', 'Dairy', 'Meat', 'Vegetables', 'Fruits', 'Bakery', 'Pantry', 'Beverages', 'Frozen', 'Snacks', 'Other'];
+
+function PantryList({ items, loading, error, onAddItemClick, onDeleteItem, onAddItem, isModalOpen, onCloseModal }) {
+  const [search, setSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('All Categories');
+
+  const filteredItems = useMemo(() => {
+    let list = items || [];
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      list = list.filter((i) => (i.name || '').toLowerCase().includes(q));
+    }
+    if (categoryFilter !== 'All Categories') {
+      list = list.filter((i) => (i.category || '') === categoryFilter);
+    }
+    return sortItemsByExpiry(list);
+  }, [items, search, categoryFilter]);
+
   if (loading) {
     return (
-      <div className="pantry-list">
-        <div className="loading">Loading pantry items...</div>
+      <div className="pantry-page">
+        <div className="loading">Loading pantry...</div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="pantry-list">
+      <div className="pantry-page">
         <div className="error">
-          <h2>⚠️ Unable to load pantry items</h2>
+          <h2>Unable to load pantry</h2>
           <p>{error}</p>
-          <p className="error-hint">
-            Make sure the backend server is running on http://127.0.0.1:5000
-          </p>
         </div>
       </div>
     );
   }
 
-  if (!items || items.length === 0) {
-    return (
-      <div className="pantry-list">
-        <div className="empty-state">
-          <h2>Your pantry is empty</h2>
-          <p>Start adding items to track their expiry dates and reduce food waste!</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Sort items by expiry date (expired first, then by days remaining)
-  const sortedItems = [...items].sort((a, b) => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    const dateA = new Date(a.expiry);
-    dateA.setHours(0, 0, 0, 0);
-    const dateB = new Date(b.expiry);
-    dateB.setHours(0, 0, 0, 0);
-    
-    const daysA = Math.ceil((dateA - today) / (1000 * 60 * 60 * 24));
-    const daysB = Math.ceil((dateB - today) / (1000 * 60 * 60 * 24));
-    
-    return daysA - daysB;
-  });
+  const itemCount = items?.length ?? 0;
 
   return (
-    <div className="pantry-list">
-      <div className="pantry-list-header">
-        <h2>Pantry Inventory</h2>
-        <div className="header-actions">
-          <span className="item-count">{items.length} item{items.length !== 1 ? 's' : ''}</span>
-          <button className="add-item-btn" onClick={onAddItemClick}>
-            <span className="add-icon">+</span>
-            <span>Add Item</span>
-          </button>
+    <div className="pantry-page">
+      <div className="pantry-page-header">
+        <div>
+          <h1 className="pantry-page-title">My Pantry</h1>
+          <p className="pantry-page-count">{itemCount} item{itemCount !== 1 ? 's' : ''} in your pantry</p>
         </div>
-      </div>
-      <div className="pantry-items-container">
-        {sortedItems.map((item) => (
-          <PantryItem 
-            key={item.id} 
-            item={item} 
-            onMarkConsumed={onMarkConsumed}
-            showMarkConsumed={true}
-          />
-        ))}
+        <button type="button" className="add-item-btn" onClick={onAddItemClick}>
+          <span className="add-icon">+</span>
+          Add Item
+        </button>
       </div>
 
-      <AddItemModal
-        isOpen={isModalOpen}
-        onClose={onCloseModal}
-        onAddItem={onAddItem}
-      />
+      <div className="pantry-toolbar">
+        <div className="search-wrap">
+          <span className="search-icon"><IconSearch size={20} /></span>
+          <input
+            type="text"
+            className="search-input"
+            placeholder="Search items..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <select
+          className="category-select"
+          value={categoryFilter}
+          onChange={(e) => setCategoryFilter(e.target.value)}
+        >
+          {CATEGORIES.map((c) => (
+            <option key={c} value={c}>{c}</option>
+          ))}
+        </select>
+      </div>
+
+      {filteredItems.length === 0 ? (
+        <div className="pantry-empty">
+          <p>{items?.length ? 'No items match your search.' : 'Your pantry is empty. Add items to get started!'}</p>
+        </div>
+      ) : (
+        <div className="pantry-grid">
+          {filteredItems.map((item) => (
+            <PantryItem
+              key={item.id}
+              item={item}
+              onDelete={onDeleteItem}
+              showActions
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

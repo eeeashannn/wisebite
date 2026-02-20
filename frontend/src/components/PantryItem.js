@@ -1,101 +1,61 @@
 import React from 'react';
 import { getDaysRemaining, getStatus } from '../utils/dateUtils';
+import { getItemDisplay } from '../utils/itemImage';
+import { formatDate } from '../utils/dateUtils';
+import { IconEdit, IconTrash } from './Icons';
 import './PantryItem.css';
 
-function PantryItem({ item, onMarkConsumed, showMarkConsumed = false }) {
-
-  const getItemImage = (itemName) => {
-    // Map item names to emoji/images
-    const imageMap = {
-      'milk': '🥛',
-      'Milk': '🥛',
-      'Bread': '🍞',
-      'bread': '🍞',
-      'Eggs': '🥚',
-      'eggs': '🥚',
-      'Eggs (Dozen)': '🥚',
-      'Spinach': '🥬',
-      'spinach': '🥬',
-      'Chicken': '🍗',
-      'chicken': '🍗',
-      'Chicken Breast': '🍗',
-      'Pasta': '🍝',
-      'pasta': '🍝',
-      'Pasta Sauce': '🍝',
-      'Yogurt': '🥛',
-      'yogurt': '🥛',
-      'Tomatoes': '🍅',
-      'tomatoes': '🍅',
-      'Cheese': '🧀',
-      'cheese': '🧀',
-    };
-    
-    // Try exact match first, then case-insensitive, then partial match
-    if (imageMap[itemName]) return imageMap[itemName];
-    if (imageMap[itemName.toLowerCase()]) return imageMap[itemName.toLowerCase()];
-    
-    // Try partial matches
-    const lowerName = itemName.toLowerCase();
-    for (const [key, emoji] of Object.entries(imageMap)) {
-      if (lowerName.includes(key.toLowerCase()) || key.toLowerCase().includes(lowerName)) {
-        return emoji;
-      }
-    }
-    
-    return itemName.charAt(0).toUpperCase();
-  };
-
+function PantryItem({ item, onDelete, showActions }) {
+  const display = getItemDisplay(item);
   const daysRemaining = getDaysRemaining(item.expiry);
   const status = getStatus(daysRemaining);
   const quantity = item.quantity || 1;
+  const unit = item.unit || 'units';
   const category = item.category || 'Pantry';
+  const addedDate = item.added_date;
 
-  const handleMarkConsumed = () => {
-    if (onMarkConsumed) {
-      onMarkConsumed(item.id);
-    }
-  };
+  const expiryLabel =
+    daysRemaining < 0
+      ? `Expired ${Math.abs(daysRemaining)} days ago`
+      : daysRemaining === 0
+        ? 'Expires today'
+        : `${daysRemaining} days left`;
 
   return (
-    <div className="pantry-item-card">
-      <div className="status-badge-top">
-        <span className={`status-badge ${status.className}`}>
-          <span className="status-icon">{status.icon}</span>
-          <span>{status.label}</span>
-        </span>
-      </div>
-      
-      <div className="item-content">
-        <div className="item-image">
-          <span className="item-image-placeholder">{getItemImage(item.name)}</span>
+    <div className="pantry-card">
+      {showActions && (
+        <div className="pantry-card-actions">
+          <button type="button" className="card-action-btn edit-btn" title="Edit" aria-label="Edit">
+            <IconEdit size={16} />
+          </button>
+          <button
+            type="button"
+            className="card-action-btn delete-btn"
+            title="Delete"
+            aria-label="Delete"
+            onClick={() => onDelete?.(item.id)}
+          >
+            <IconTrash size={16} />
+          </button>
         </div>
-        
-        <div className="item-info">
-          <h3 className="item-name">{item.name}</h3>
-          <p className="item-meta">
-            {quantity} {quantity === 1 ? 'unit' : 'units'} • {category}
-          </p>
-          <p className="item-expiry">
-            {daysRemaining < 0 ? (
-              <span className="expiry-text expired">
-                Expires {Math.abs(daysRemaining)} day{Math.abs(daysRemaining) !== 1 ? 's' : ''} ago
-              </span>
-            ) : daysRemaining === 0 ? (
-              <span className="expiry-text expiring">Expires today!</span>
-            ) : (
-              <span className="expiry-text fresh">
-                Expires in {daysRemaining} day{daysRemaining !== 1 ? 's' : ''}
-              </span>
-            )}
-          </p>
-        </div>
-      </div>
-
-      {showMarkConsumed && (
-        <button className="mark-consumed-btn" onClick={handleMarkConsumed}>
-          Mark Consumed
-        </button>
       )}
+      <div className="pantry-card-icon">
+        {display.type === 'image' ? (
+          <img src={display.value} alt={item.name} className="pantry-card-img" />
+        ) : (
+          <span className="pantry-card-letter">{display.value}</span>
+        )}
+      </div>
+      <h3 className="pantry-card-name">{item.name}</h3>
+      <p className="pantry-card-meta">{category}</p>
+      <p className="pantry-card-quantity">
+        {quantity} {quantity === 1 ? (unit === 'Pieces' ? 'piece' : unit.toLowerCase()) : unit.toLowerCase()}
+      </p>
+      <p className="pantry-card-added">{addedDate ? `Added ${formatDate(addedDate)}` : 'Added -'}</p>
+      <p className={`pantry-card-expiry ${daysRemaining <= 0 ? 'expired' : 'fresh'}`}>
+        <span className="expiry-dot" data-expired={daysRemaining <= 0} />
+        {expiryLabel}
+      </p>
     </div>
   );
 }

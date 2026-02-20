@@ -1,0 +1,65 @@
+.barcode-scanner-box {
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 12px;
+  margin-bottom: 1rem;
+}
+
+.barcode-title {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.1rem;
+  color: #2c3e50;
+}
+
+.barcode-desc {
+  margin: 0 0 1rem 0;
+  font-size: 0.9rem;
+  color: #7f8c8d;
+}
+
+.barcode-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.barcode-input {
+  padding: 0.75rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 1rem;
+}
+
+.barcode-btn {
+  padding: 0.75rem;
+  background: #27ae60;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.barcode-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.barcode-error {
+  color: #e74c3c;
+  font-size: 0.9rem;
+  margin: 0.5rem 0 0 0;
+}
+
+.barcode-cancel {
+  margin-top: 0.75rem;
+  background: none;
+  border: none;
+  color: #7f8c8d;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.barcode-cancel:hover {
+  color: #2c3e50;
+}

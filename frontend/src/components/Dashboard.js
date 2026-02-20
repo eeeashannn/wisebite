@@ -1,15 +1,12 @@
 import React from 'react';
-import WelcomeHeader from './dashboard/WelcomeHeader';
 import StatsCards from './dashboard/StatsCards';
-import NeedsAttentionSection from './dashboard/NeedsAttentionSection';
-import RecipeGenerator from './recipes/RecipeGenerator';
-import AddItemModal from './AddItemModal';
+import { IconChefHat } from './Icons';
 import './Dashboard.css';
 
-function Dashboard({ stats, items, loading, error, onMarkConsumed, onAddItemClick, isModalOpen, onCloseModal, onAddItem }) {
+function Dashboard({ stats, loading, error, onGenerateRecipeClick }) {
   if (loading) {
     return (
-      <div className="dashboard">
+      <div className="dashboard-page">
         <div className="loading">Loading dashboard...</div>
       </div>
     );
@@ -17,37 +14,29 @@ function Dashboard({ stats, items, loading, error, onMarkConsumed, onAddItemClic
 
   if (error) {
     return (
-      <div className="dashboard">
+      <div className="dashboard-page">
         <div className="error">
-          <h2>⚠️ Unable to load dashboard</h2>
+          <h2>Unable to load dashboard</h2>
           <p>{error}</p>
         </div>
       </div>
     );
   }
 
-  if (!stats) {
-    return (
-      <div className="dashboard">
-        <div className="empty-state">
-          <h2>No pantry data available</h2>
-          <p>Start adding items to your pantry to see statistics here.</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="dashboard">
-      <WelcomeHeader onAddItemClick={onAddItemClick} />
-      <StatsCards stats={stats} />
-      <NeedsAttentionSection items={items || []} onMarkConsumed={onMarkConsumed} />
-      <RecipeGenerator items={items || []} />
-      <AddItemModal
-        isOpen={isModalOpen}
-        onClose={onCloseModal}
-        onAddItem={onAddItem}
-      />
+    <div className="dashboard-page">
+      <h1 className="dashboard-page-title">Dashboard</h1>
+      <p className="dashboard-page-subtitle">Monitor your pantry and reduce food waste.</p>
+
+      <StatsCards stats={stats || { total_items: 0, fresh: 0, expiring_soon: 0, expired: 0 }} />
+
+      <div className="generate-recipe-cta">
+        <button type="button" className="generate-recipe-cta-btn" onClick={onGenerateRecipeClick}>
+          <span className="generate-recipe-cta-icon"><IconChefHat size={40} /></span>
+          <span className="generate-recipe-cta-text">Generate Recipe</span>
+          <span className="generate-recipe-cta-desc">Get AI-powered suggestions based on your pantry</span>
+        </button>
+      </div>
     </div>
   );
 }

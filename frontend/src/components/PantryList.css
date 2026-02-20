@@ -1,34 +1,39 @@
-.pantry-list {
-  padding: 2rem;
-  max-width: 1200px;
-  margin: 0 auto;
+.pantry-page {
+  padding: 0;
 }
 
-.pantry-list-header {
+.pantry-page-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 1.5rem;
 }
 
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
+.pantry-page-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #2c3e50;
+  margin: 0 0 0.25rem 0;
+}
+
+.pantry-page-count {
+  color: #7f8c8d;
+  margin: 0;
+  font-size: 1rem;
 }
 
 .add-item-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.25rem;
   background: #27ae60;
   color: white;
   border: none;
   border-radius: 8px;
-  padding: 0.75rem 1.5rem;
-  font-size: 1rem;
   font-weight: 600;
+  font-size: 0.95rem;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
   transition: background 0.2s;
 }
 
@@ -37,57 +42,68 @@
 }
 
 .add-icon {
-  font-size: 1.25rem;
-  font-weight: 300;
+  font-size: 1.2rem;
 }
 
-.pantry-list-header h2 {
-  font-size: 2rem;
-  color: #2c3e50;
-  margin: 0;
-  font-weight: 700;
+.pantry-toolbar {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
 }
 
-.item-count {
+.search-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 0 1rem;
+}
+
+.search-icon {
+  margin-right: 0.5rem;
   font-size: 1rem;
-  color: #7f8c8d;
-  font-weight: 500;
-  background: #ecf0f1;
-  padding: 0.5rem 1rem;
-  border-radius: 20px;
+  opacity: 0.7;
 }
 
-.pantry-items-container {
+.search-input {
+  flex: 1;
+  border: none;
+  padding: 0.75rem 0;
+  font-size: 1rem;
+  outline: none;
+}
+
+.category-select {
+  padding: 0.75rem 1rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background: white;
+  font-size: 0.95rem;
+  min-width: 160px;
+}
+
+.pantry-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1.25rem;
 }
 
-@media (max-width: 1200px) {
-  .pantry-items-container {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 768px) {
-  .pantry-items-container {
-    grid-template-columns: 1fr;
-  }
+.pantry-empty {
+  background: white;
+  border-radius: 12px;
+  padding: 3rem;
+  text-align: center;
+  color: #7f8c8d;
 }
 
 .loading,
-.error,
-.empty-state {
+.error {
   text-align: center;
   padding: 3rem;
   background: white;
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.loading {
-  color: #3498db;
-  font-size: 1.2rem;
 }
 
 .error {
@@ -95,28 +111,5 @@
 }
 
 .error h2 {
-  margin-bottom: 1rem;
-}
-
-.error-hint {
-  font-size: 0.9rem;
-  color: #7f8c8d;
-  margin-top: 0.5rem;
-}
-
-.empty-state {
-  color: #7f8c8d;
-}
-
-.empty-state h2 {
-  color: #2c3e50;
   margin-bottom: 0.5rem;
-}
-
-@media (max-width: 768px) {
-  .pantry-list-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.5rem;
-  }
 }

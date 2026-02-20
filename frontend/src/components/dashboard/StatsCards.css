@@ -1,35 +1,37 @@
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 1.5rem;
-  margin-bottom: 3rem;
+  gap: 1.25rem;
 }
 
 .stat-card {
   background: white;
   border-radius: 12px;
   padding: 1.5rem;
-  border: 1px solid #e0e0e0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   text-align: center;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: box-shadow 0.2s;
 }
 
 .stat-card:hover {
-  transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .stat-icon {
-  font-size: 2rem;
   margin-bottom: 0.75rem;
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stat-icon svg {
+  stroke: currentColor;
 }
 
 .stat-value {
-  font-size: 2.5rem;
+  font-size: 2.25rem;
   font-weight: 700;
-  color: #27ae60;
-  margin: 0.5rem 0;
+  margin: 0.25rem 0;
 }
 
 .stat-label {
@@ -37,6 +39,19 @@
   color: #7f8c8d;
   font-weight: 500;
 }
+
+/* Total Items - blue */
+.stat-card.total .stat-icon { filter: none; }
+.stat-card.total .stat-value { color: #3498db; }
+
+/* Fresh - green */
+.stat-card.fresh .stat-value { color: #27ae60; }
+
+/* Expiring Soon - orange */
+.stat-card.expiring .stat-value { color: #f39c12; }
+
+/* Expired - red */
+.stat-card.expired .stat-value { color: #e74c3c; }
 
 @media (max-width: 768px) {
   .stats-grid {

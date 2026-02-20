@@ -1,182 +1,169 @@
 import React, { useEffect, useState } from "react";
 import Dashboard from "./components/Dashboard";
 import PantryList from "./components/PantryList";
-import TipOfTheDay from "./components/TipOfTheDay";
+import ScanPage from "./components/ScanPage";
+import RecipesPage from "./components/RecipesPage";
+import ProduceAIPage from "./components/ProduceAIPage";
+import AddItemModal from "./components/AddItemModal";
+import BrandLogo from "./components/BrandLogo";
+import { IconHome, IconBox, IconCamera, IconChefHat, IconApple } from "./components/Icons";
 import "./App.css";
 
 const API_BASE_URL = "http://127.0.0.1:5000";
+
+const VIEWS = { dashboard: "dashboard", pantry: "pantry", scan: "scan", recipes: "recipes", produce: "produce" };
 
 function App() {
   const [items, setItems] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [activeView, setActiveView] = useState("dashboard");
+  const [activeView, setActiveView] = useState(VIEWS.dashboard);
   const [isModalOpen, setIsModalOpen] = useState(false);
-
-  useEffect(() => {
-    fetchData();
-  }, []);
 
   const fetchData = async () => {
     setLoading(true);
     setError(null);
-
     try {
-      // Fetch items and stats in parallel
-      const [itemsResponse, statsResponse] = await Promise.all([
+      const [itemsRes, statsRes] = await Promise.all([
         fetch(`${API_BASE_URL}/items`),
         fetch(`${API_BASE_URL}/stats`),
       ]);
-
-      if (!itemsResponse.ok || !statsResponse.ok) {
-        throw new Error("Failed to fetch data from backend");
-      }
-
-      const itemsData = await itemsResponse.json();
-      const statsData = await statsResponse.json();
-
+      if (!itemsRes.ok || !statsRes.ok) throw new Error("Failed to fetch data");
+      const [itemsData, statsData] = await Promise.all([itemsRes.json(), statsRes.json()]);
       setItems(itemsData);
       setStats(statsData);
     } catch (err) {
-      setError(
-        err.message || "Unable to connect to the backend server. Please ensure it's running."
-      );
-      console.error("Error fetching data:", err);
+      setError(err.message || "Unable to connect to the backend server.");
+      console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleMarkConsumed = (itemId) => {
-    // TODO: Implement API call to mark item as consumed
-    setItems(items.filter(item => item.id !== itemId));
-    // Update stats
-    if (stats) {
-      const item = items.find(i => i.id === itemId);
-      if (item) {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const expiry = new Date(item.expiry);
-        expiry.setHours(0, 0, 0, 0);
-        const daysRemaining = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
-        
-        const newStats = { ...stats, total_items: stats.total_items - 1 };
-        if (daysRemaining < 0) {
-          newStats.expired = Math.max(0, stats.expired - 1);
-        } else if (daysRemaining <= 3) {
-          newStats.expiring_soon = Math.max(0, stats.expiring_soon - 1);
-        } else {
-          newStats.fresh = Math.max(0, stats.fresh - 1);
-        }
-        setStats(newStats);
+  useEffect(() => { fetchData(); }, []);
+
+  const handleDeleteItem = async (itemId) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/items/${itemId}`, { method: "DELETE" });
+      if (res.ok) fetchData();
+      else {
+        setItems(items.filter((i) => i.id !== itemId));
+        if (stats) setStats({ ...stats, total_items: Math.max(0, stats.total_items - 1) });
       }
+    } catch {
+      setItems(items.filter((i) => i.id !== itemId));
+      if (stats) setStats({ ...stats, total_items: Math.max(0, stats.total_items - 1) });
     }
   };
 
   const handleAddItem = async (newItem) => {
     try {
-      // Generate a new ID (in a real app, this would come from the backend)
-      const newId = items.length > 0 ? Math.max(...items.map(i => i.id)) + 1 : 1;
-      const itemToAdd = {
-        id: newId,
-        name: newItem.name,
-        category: newItem.category,
-        expiry: newItem.expiry,
-        quantity: newItem.quantity || 1
-      };
-
-      // Add to frontend state immediately
-      const updatedItems = [...items, itemToAdd];
-      setItems(updatedItems);
-
-      // Recalculate stats
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const expiry = new Date(itemToAdd.expiry);
-      expiry.setHours(0, 0, 0, 0);
-      const daysRemaining = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
-
-      const newStats = { ...stats };
-      newStats.total_items = (newStats.total_items || 0) + 1;
-      
-      if (daysRemaining < 0) {
-        newStats.expired = (newStats.expired || 0) + 1;
-      } else if (daysRemaining <= 3) {
-        newStats.expiring_soon = (newStats.expiring_soon || 0) + 1;
-      } else {
-        newStats.fresh = (newStats.fresh || 0) + 1;
+      const res = await fetch(`${API_BASE_URL}/items`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newItem.name,
+          category: newItem.category,
+          expiry: newItem.expiry,
+          quantity: newItem.quantity || 1,
+          unit: newItem.unit,
+          notes: newItem.notes,
+          image_url: newItem.image_url,
+          barcode: newItem.barcode,
+        }),
+      });
+      if (res.ok) {
+        fetchData();
+        setIsModalOpen(false);
       }
-      
-      setStats(newStats);
-
-      // TODO: Make API call to backend to persist the item
-      // await fetch(`${API_BASE_URL}/items`, {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(itemToAdd)
-      // });
     } catch (err) {
-      console.error('Error adding item:', err);
-      // Could show an error message to the user here
+      console.error(err);
     }
+  };
+
+  const common = {
+    items,
+    stats,
+    loading,
+    error,
+    isModalOpen,
+    onCloseModal: () => setIsModalOpen(false),
+    onAddItemClick: () => setIsModalOpen(true),
+    onAddItem: handleAddItem,
   };
 
   return (
     <div className="App">
-      <aside className="sidebar">
-        <div className="sidebar-header">
-          <span className="brand-icon">👨‍🍳</span>
-          <h1 className="brand-title">WiseBite</h1>
+      <header className="topnav">
+        <div className="topnav-brand">
+          <span className="brand-icon">
+            <BrandLogo />
+          </span>
+          <span className="brand-title">WiseBite</span>
         </div>
-        
-        <nav className="sidebar-nav">
+        <nav className="nav-tabs" aria-label="Main navigation">
           <button
-            className={`nav-link ${activeView === "dashboard" ? "active" : ""}`}
-            onClick={() => setActiveView("dashboard")}
+            className={`nav-tab ${activeView === VIEWS.dashboard ? "active" : ""}`}
+            onClick={() => setActiveView(VIEWS.dashboard)}
           >
-            <span className="nav-icon">⊞</span>
+            <span className="nav-tab-icon"><IconHome size={20} /></span>
             <span>Dashboard</span>
           </button>
           <button
-            className={`nav-link ${activeView === "pantry" ? "active" : ""}`}
-            onClick={() => setActiveView("pantry")}
+            className={`nav-tab ${activeView === VIEWS.pantry ? "active" : ""}`}
+            onClick={() => setActiveView(VIEWS.pantry)}
           >
-            <span className="nav-icon">📦</span>
-            <span>My Pantry</span>
+            <span className="nav-tab-icon"><IconBox size={20} /></span>
+            <span>Pantry</span>
+          </button>
+          <button
+            className={`nav-tab ${activeView === VIEWS.scan ? "active" : ""}`}
+            onClick={() => setActiveView(VIEWS.scan)}
+          >
+            <span className="nav-tab-icon"><IconCamera size={20} /></span>
+            <span>Scan</span>
+          </button>
+          <button
+            className={`nav-tab ${activeView === VIEWS.recipes ? "active" : ""}`}
+            onClick={() => setActiveView(VIEWS.recipes)}
+          >
+            <span className="nav-tab-icon"><IconChefHat size={20} /></span>
+            <span>Recipes</span>
+          </button>
+          <button
+            className={`nav-tab ${activeView === VIEWS.produce ? "active" : ""}`}
+            onClick={() => setActiveView(VIEWS.produce)}
+          >
+            <span className="nav-tab-icon"><IconApple size={20} /></span>
+            <span>Produce AI</span>
           </button>
         </nav>
-
-        <TipOfTheDay />
-      </aside>
+      </header>
 
       <main className="main-content">
-        {activeView === "dashboard" && (
-          <Dashboard 
-            stats={stats} 
-            items={items}
-            loading={loading} 
-            error={error}
-            onMarkConsumed={handleMarkConsumed}
-            onAddItemClick={() => setIsModalOpen(true)}
-            isModalOpen={isModalOpen}
-            onCloseModal={() => setIsModalOpen(false)}
-            onAddItem={handleAddItem}
-          />
+        {activeView === VIEWS.dashboard && (
+          <Dashboard {...common} onGenerateRecipeClick={() => setActiveView(VIEWS.recipes)} />
         )}
-        {activeView === "pantry" && (
-          <PantryList 
-            items={items} 
-            loading={loading} 
-            error={error}
-            onMarkConsumed={handleMarkConsumed}
-            onAddItemClick={() => setIsModalOpen(true)}
-            isModalOpen={isModalOpen}
-            onCloseModal={() => setIsModalOpen(false)}
-            onAddItem={handleAddItem}
-          />
+        {activeView === VIEWS.pantry && (
+          <PantryList {...common} onDeleteItem={handleDeleteItem} />
+        )}
+        {activeView === VIEWS.scan && (
+          <ScanPage {...common} />
+        )}
+        {activeView === VIEWS.recipes && (
+          <RecipesPage {...common} />
+        )}
+        {activeView === VIEWS.produce && (
+          <ProduceAIPage />
         )}
       </main>
+
+      <AddItemModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onAddItem={handleAddItem}
+      />
     </div>
   );
 }

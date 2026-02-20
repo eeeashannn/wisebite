@@ -1,0 +1,47 @@
+.recipes-page {
+  padding: 0;
+}
+
+.recipes-page-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #2c3e50;
+  margin: 0 0 0.25rem 0;
+}
+
+.recipes-page-subtitle {
+  color: #7f8c8d;
+  margin: 0 0 1.5rem 0;
+  font-size: 1rem;
+}
+
+.priority-ingredients-box {
+  background: #fef9e7;
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+  border: 1px solid #f0e6c8;
+}
+
+.priority-ingredients-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #2c3e50;
+  margin: 0 0 0.75rem 0;
+}
+
+.priority-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.priority-tag {
+  display: inline-block;
+  padding: 0.4rem 0.75rem;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  color: #2c3e50;
+}

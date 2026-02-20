@@ -23,6 +23,47 @@
   font-size: 1rem;
 }
 
+.recipe-preferences-section {
+  margin-bottom: 1.5rem;
+}
+
+.recipe-preferences-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #2c3e50;
+  margin: 0 0 0.75rem 0;
+}
+
+.recipe-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.generate-btn-icon {
+  font-size: 1.25rem;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.filter-group label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.filter-group select {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  min-width: 140px;
+}
+
 .generate-recipe-btn {
   width: 100%;
   background: #27ae60;
@@ -51,11 +92,16 @@
 }
 
 .spinner {
-  animation: spin 1s linear infinite;
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
 
@@ -79,9 +125,21 @@
 
 .recipe-meta {
   display: flex;
+  flex-wrap: wrap;
   gap: 1.5rem;
   color: #7f8c8d;
   font-size: 0.9rem;
+}
+
+.recipe-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.recipe-meta svg {
+  flex-shrink: 0;
+  stroke: currentColor;
 }
 
 .recipe-description {
@@ -165,6 +223,54 @@
 
 .instructions-list li {
   margin-bottom: 0.75rem;
+}
+
+.missing-section {
+  background: #e8f5e9;
+  padding: 1rem;
+  border-radius: 8px;
+}
+
+.missing-intro {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.95rem;
+  color: #2e7d32;
+}
+
+.missing-list {
+  margin: 0 0 1rem 0;
+  padding-left: 1.25rem;
+  color: #34495e;
+}
+
+.delivery-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.delivery-btn {
+  display: inline-block;
+  padding: 0.6rem 1rem;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-decoration: none;
+  transition: opacity 0.2s;
+}
+
+.delivery-btn:hover {
+  opacity: 0.9;
+}
+
+.delivery-btn.deliveroo {
+  background: #00ccbc;
+  color: white;
+}
+
+.delivery-btn.ubereats {
+  background: #06c167;
+  color: white;
 }
 
 @media (max-width: 768px) {

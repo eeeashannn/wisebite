@@ -1,145 +1,36 @@
-# WiseBite: A Smart Food Inventory and Waste Reduction Platform
 
-## 🔹 Project Overview
+**WiseBite: Product description**
 
-WiseBite is a smart food inventory and waste-reduction application designed to help individuals manage their pantry items efficiently and reduce household food waste. The system allows users to record food items along with their expiry dates and provides intelligent tracking, prioritisation, and alerts based on time-to-expiry.
+**What it is**
 
-## 🔹 Features
+WiseBite is a web application that helps people manage their food at home and cut down on waste. Users keep a digital pantry, see what is about to go off, and get ideas for using food before it expires. The app runs in the browser and talks to a small backend API.
 
-- **User Dashboard**: Summary of total pantry items with counts of fresh, expiring soon, and expired items
-- **Pantry Inventory Management**: View all items with expiry dates and color-coded status indicators
-- **Intelligent Expiry Tracking**: Automatic calculation of days remaining until expiry
-- **Visual Prioritisation**: Items automatically sorted by expiry date with color-coded indicators
-- **Error Handling**: Graceful error handling with loading states and user-friendly messages
-- **Modular Architecture**: Clean separation of concerns with reusable React components
+**Main areas of the app**
 
-## 🔹 Technologies
+**Home**
 
-### Backend
-- Python 3
-- Flask
-- Flask-CORS
-- RESTful API design
+The Home view is the main screen. At the top it shows four summary numbers: total items in the pantry, how many are still fresh, how many are expiring soon (within a few days), and how many are already expired. Under that, “My Pantry” lists all items. Each item shows name, category, expiry date, quantity and unit, and optional notes. Items are ordered by expiry so the soonest to expire appear first. Colours indicate status: green for fresh, orange for expiring soon, red for expired. Users can search the list by name and filter by category (e.g. Dairy, Meat, Vegetables, Bakery, Pantry, Beverages, Frozen, Snacks, Other). From here they can add new items or delete existing ones.
 
-### Frontend
-- React (Create React App)
-- JavaScript (ES6+)
-- CSS with modern styling
-- Component-based UI architecture
+**Scan**
 
-## 🔹 Setup Instructions
+The Scan area is for adding products by barcode. Users can turn on the device camera and point it at a barcode; the app reads the code and looks up the product. They can also type the barcode number and look it up manually. When a product is found, the app opens the Add Item form with name, category, and image filled in so the user only needs to set expiry and quantity. Product data comes from the FatSecret API when credentials are set, and from Open Food Facts when FatSecret is not used or does not find the product.
 
-### Prerequisites
-- Python 3.7 or higher
-- Node.js 14 or higher
-- npm or yarn
+**Recipes**
 
-### Backend Setup
+The Recipes area helps users cook with what they have. It highlights “priority” ingredients: items that will expire within about a week. Users can choose dietary style (e.g. vegetarian, vegan, gluten free), cuisine (e.g. Italian, Asian, Mexican), and maximum cooking time (e.g. under 15, 30, or 45 minutes). After they request a recipe, the backend suggests one based on their pantry, favouring items that are expiring soon. The result shows recipe name, description, ingredients, and steps, and can list “missing ingredients” with links to search for them on Deliveroo or Uber Eats so users can order what they don’t have.
 
-1. Navigate to the backend directory:
-```bash
-cd backend
-```
+**Produce AI**
 
-2. Create a virtual environment (recommended):
-```bash
-python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
+Produce AI is a separate tool for a quick freshness check. The user uploads or drags a photo of fruit or vegetables (e.g. from the camera or gallery). The app sends the image to the backend, which returns a simple freshness estimate (for example good, fair, or use soon) and a short tip. The app clearly states that this is an AI-based estimate and should not replace the user’s own judgment.
 
-3. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
+**Adding and editing items**
 
-4. Run the Flask server:
-```bash
-python app.py
-```
+Adding an item can be done from Home (Add Item) or after a barcode lookup on Scan. The form asks for name, category, expiry date, quantity, unit, optional notes, and optionally an image URL or barcode. When a barcode is scanned or entered and a product is found, name, category, and image are filled in automatically. Users can still add items manually without scanning.
 
-The backend will be available at `http://127.0.0.1:5000`
+**Technical side**
 
-### Frontend Setup
+The frontend is a React app (Create React App) with a top bar that has the WiseBite logo and four sections: Home, Scan, Recipes, Produce AI. Data is stored and computed on a Python Flask backend that exposes REST endpoints for items, stats, barcode lookup, recipe generation, and produce scan. Pantry data is kept in memory (with optional sample data for testing). Barcode lookup uses FatSecret when client ID and secret are set, and Open Food Facts otherwise. The camera scanner in the browser uses the html5-qrcode library to read barcodes from the live camera feed.
 
-1. Navigate to the frontend directory:
-```bash
-cd frontend
-```
+**Summary**
 
-2. Install dependencies:
-```bash
-npm install
-```
-
-3. Start the development server:
-```bash
-npm start
-```
-
-The frontend will be available at `http://localhost:3000`
-
-## 🔹 API Endpoints
-
-- `GET /` - API information and available endpoints
-- `GET /items` - Retrieve all pantry items
-- `GET /items/<id>` - Retrieve a specific item by ID
-- `POST /items` - Add a pantry item
-- `DELETE /items/<id>` - Delete a pantry item
-- `GET /stats` - Get dashboard statistics (total, fresh, expiring soon, expired)
-- `GET /barcode/<code>` - Look up product by barcode (see Barcode lookup below)
-
-### Barcode lookup
-
-The app resolves barcodes using two sources:
-
-1. **FatSecret Platform API** (optional, recommended): Nutrition-focused food database with high barcode match rate. Requires a free API key from [FatSecret Platform](https://platform.fatsecret.com). Set these environment variables before starting the backend:
-   - `FATSECRET_CLIENT_ID` – your FatSecret OAuth2 Client ID  
-   - `FATSECRET_CLIENT_SECRET` – your FatSecret OAuth2 Client Secret  
-   If both are set, barcode lookups use FatSecret first.
-
-2. **Open Food Facts** (fallback): Free, no API key. Used when FatSecret is not configured or when FatSecret does not find the product (e.g. error 211). Provides product name, category, and image.
-
-The Scan page uses the device camera (via the `html5-qrcode` library) to scan barcodes, or you can enter the barcode number manually.
-
-## 🔹 Project Structure
-
-```
-exs415/
-├── backend/
-│   ├── app.py              # Flask application
-│   └── requirements.txt    # Python dependencies
-├── frontend/
-│   ├── src/
-│   │   ├── components/     # React components
-│   │   │   ├── Dashboard.js
-│   │   │   ├── PantryItem.js
-│   │   │   └── PantryList.js
-│   │   ├── App.js          # Main application component
-│   │   └── index.js        # Entry point
-│   └── package.json        # Node dependencies
-└── README.md
-```
-
-## 🔹 Usage
-
-1. Start the backend server first (see Backend Setup)
-2. Start the frontend development server (see Frontend Setup)
-3. Open your browser to `http://localhost:3000`
-4. Navigate between the Dashboard and Pantry views using the navigation bar
-
-## 🔹 Future Enhancements
-
-- Barcode scanning integration
-- OCR-based extraction of expiry dates from packaging
-- Mobile application support
-- User accounts and authentication
-- Notifications and reminders
-- Analytics on food waste reduction
-- Item creation, deletion, and update functionality
-
-## 🔹 Development Notes
-
-- The backend uses CORS to allow cross-origin requests from the frontend
-- Items are currently stored in memory (sample data)
-- The frontend automatically sorts items by expiry date
-- Status indicators: Green (Fresh), Orange (Expiring Soon), Red (Expired) 
+WiseBite is a single, organised place to see what food you have, what needs using first, and how to use it, with barcode scanning and a simple AI produce check to make logging and using food easier and to reduce waste.

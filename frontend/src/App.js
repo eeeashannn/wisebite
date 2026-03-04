@@ -40,14 +40,23 @@ function App() {
     setAuth(null);
   };
 
+  const authHeaders = () => ({
+    ...(auth?.token && { Authorization: `Bearer ${auth.token}` }),
+  });
+
   const fetchData = async () => {
+    if (!auth?.token) return;
     setLoading(true);
     setError(null);
     try {
       const [itemsRes, statsRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/items`),
-        fetch(`${API_BASE_URL}/stats`),
+        fetch(`${API_BASE_URL}/items`, { headers: authHeaders() }),
+        fetch(`${API_BASE_URL}/stats`, { headers: authHeaders() }),
       ]);
+      if (itemsRes.status === 401 || statsRes.status === 401) {
+        handleLogout();
+        return;
+      }
       if (!itemsRes.ok || !statsRes.ok) throw new Error("Failed to fetch data");
       const [itemsData, statsData] = await Promise.all([itemsRes.json(), statsRes.json()]);
       setItems(itemsData);
@@ -66,7 +75,14 @@ function App() {
 
   const handleDeleteItem = async (itemId) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/items/${itemId}`, { method: "DELETE" });
+      const res = await fetch(`${API_BASE_URL}/items/${itemId}`, {
+        method: "DELETE",
+        headers: authHeaders(),
+      });
+      if (res.status === 401) {
+        handleLogout();
+        return;
+      }
       if (res.ok) fetchData();
       else {
         setItems(items.filter((i) => i.id !== itemId));
@@ -82,7 +98,7 @@ function App() {
     try {
       const res = await fetch(`${API_BASE_URL}/items`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({
           name: newItem.name,
           category: newItem.category,
@@ -94,6 +110,10 @@ function App() {
           barcode: newItem.barcode,
         }),
       });
+      if (res.status === 401) {
+        handleLogout();
+        return;
+      }
       if (res.ok) {
         fetchData();
         setIsModalOpen(false);

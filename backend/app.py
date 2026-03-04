@@ -40,25 +40,30 @@ def _make_token(user_id, email):
     }
     return jwt.encode(payload, SECRET_KEY, algorithm="HS256")
 
+
+def _get_current_user():
+    """Read Authorization: Bearer <token>, decode JWT; return {"user_id", "email"} or None."""
+    auth = request.headers.get("Authorization")
+    if not auth or not auth.startswith("Bearer "):
+        return None
+    token = auth[7:].strip()
+    if not token:
+        return None
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        return {"user_id": payload.get("user_id"), "email": payload.get("email")}
+    except (jwt.InvalidTokenError, jwt.ExpiredSignatureError):
+        return None
+
+
 # Optional: FatSecret Platform API (barcode + nutrition). If set, used first; else Open Food Facts.
 FATSECRET_CLIENT_ID = os.environ.get("FATSECRET_CLIENT_ID", "").strip()
 FATSECRET_CLIENT_SECRET = os.environ.get("FATSECRET_CLIENT_SECRET", "").strip()
 _FATSECRET_TOKEN = None
 
-# In-memory pantry storage with sample items for testing
-def _sample_items():
-    today = date.today()
-    return [
-        {"id": 1, "name": "Milk", "category": "Dairy", "expiry": (today - timedelta(days=2)).strftime("%Y-%m-%d"), "quantity": 1, "unit": "Liters", "notes": "", "image_url": None, "barcode": None, "added_date": (today - timedelta(days=7)).strftime("%Y-%m-%d")},
-        {"id": 2, "name": "Bread", "category": "Bakery", "expiry": (today + timedelta(days=1)).strftime("%Y-%m-%d"), "quantity": 1, "unit": "Pieces", "notes": "", "image_url": None, "barcode": None, "added_date": (today - timedelta(days=2)).strftime("%Y-%m-%d")},
-        {"id": 3, "name": "Eggs", "category": "Dairy", "expiry": (today + timedelta(days=5)).strftime("%Y-%m-%d"), "quantity": 12, "unit": "Pieces", "notes": "", "image_url": None, "barcode": None, "added_date": (today - timedelta(days=1)).strftime("%Y-%m-%d")},
-        {"id": 4, "name": "Chicken Breast", "category": "Meat", "expiry": (today - timedelta(days=1)).strftime("%Y-%m-%d"), "quantity": 500, "unit": "Grams", "notes": "", "image_url": None, "barcode": None, "added_date": (today - timedelta(days=3)).strftime("%Y-%m-%d")},
-        {"id": 5, "name": "Spinach", "category": "Vegetables", "expiry": (today + timedelta(days=2)).strftime("%Y-%m-%d"), "quantity": 1, "unit": "Packages", "notes": "", "image_url": None, "barcode": None, "added_date": today.strftime("%Y-%m-%d")},
-        {"id": 6, "name": "Pasta Sauce", "category": "Pantry", "expiry": (today + timedelta(days=30)).strftime("%Y-%m-%d"), "quantity": 2, "unit": "Bottles", "notes": "", "image_url": None, "barcode": None, "added_date": (today - timedelta(days=5)).strftime("%Y-%m-%d")},
-    ]
-
-PANTRY_ITEMS = _sample_items()
-_NEXT_ID = 7
+# In-memory pantry storage; each item has user_id for per-user inventory
+PANTRY_ITEMS = []
+_NEXT_ID = 1
 
 def _next_id():
     global _NEXT_ID
@@ -175,11 +180,18 @@ def auth_login():
 
 @app.route('/items', methods=['GET'])
 def get_items():
-    return jsonify(PANTRY_ITEMS)
+    user = _get_current_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+    my_items = [i for i in PANTRY_ITEMS if i.get("user_id") == user["user_id"]]
+    return jsonify(my_items)
 
 
 @app.route('/items', methods=['POST'])
 def add_item():
+    user = _get_current_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
     global PANTRY_ITEMS, _NEXT_ID
     data = request.get_json() or {}
     name = data.get('name', '').strip()
@@ -189,6 +201,7 @@ def add_item():
     today = datetime.now().strftime("%Y-%m-%d")
     item = {
         "id": _next_id(),
+        "user_id": user["user_id"],
         "name": name,
         "category": data.get('category', 'Other'),
         "expiry": expiry,
@@ -205,7 +218,10 @@ def add_item():
 
 @app.route('/items/<int:item_id>', methods=['GET'])
 def get_item(item_id):
-    item = next((i for i in PANTRY_ITEMS if i["id"] == item_id), None)
+    user = _get_current_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+    item = next((i for i in PANTRY_ITEMS if i["id"] == item_id and i.get("user_id") == user["user_id"]), None)
     if not item:
         return jsonify({"error": "Item not found"}), 404
     return jsonify(item)
@@ -213,9 +229,12 @@ def get_item(item_id):
 
 @app.route('/items/<int:item_id>', methods=['DELETE'])
 def delete_item(item_id):
+    user = _get_current_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
     global PANTRY_ITEMS
     for i, item in enumerate(PANTRY_ITEMS):
-        if item["id"] == item_id:
+        if item["id"] == item_id and item.get("user_id") == user["user_id"]:
             PANTRY_ITEMS.pop(i)
             return jsonify({"success": True})
     return jsonify({"error": "Item not found"}), 404
@@ -223,7 +242,11 @@ def delete_item(item_id):
 
 @app.route('/stats')
 def get_stats():
-    return jsonify(_compute_stats(PANTRY_ITEMS))
+    user = _get_current_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+    my_items = [i for i in PANTRY_ITEMS if i.get("user_id") == user["user_id"]]
+    return jsonify(_compute_stats(my_items))
 
 
 # ---------- Barcode: FatSecret (optional) + Open Food Facts (fallback) ----------

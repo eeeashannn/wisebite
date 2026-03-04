@@ -82,11 +82,8 @@ function ScanPage({ items, onAddItemClick, onAddItem }) {
   const stopCamera = () => {
     setCameraActive(false);
     setCameraError(null);
-    if (html5QrRef.current) {
-      html5QrRef.current.stop().catch(() => {}).finally(() => {
-        html5QrRef.current = null;
-      });
-    }
+    // Let the useEffect cleanup handle stopping the scanner to avoid
+    // "Cannot transition to a new state, already under transition"
   };
 
   useEffect(() => {

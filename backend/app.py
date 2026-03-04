@@ -1,12 +1,44 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-from datetime import datetime
+from werkzeug.security import generate_password_hash, check_password_hash
+from datetime import datetime, timedelta, date
 import os
 import base64
+import re
+import jwt
 import requests
 
 app = Flask(__name__)
-CORS(app)
+# Allow frontend origin for CORS; preflight (OPTIONS) must succeed for POST with JSON
+CORS(
+    app,
+    resources={r"/*": {"origins": ["http://localhost:3000", "http://127.0.0.1:3000"]}},
+    allow_headers=["Content-Type", "Authorization"],
+    expose_headers=["Content-Type"],
+    methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    supports_credentials=False,
+)
+
+SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-change-in-production")
+JWT_EXPIRY_DAYS = 7
+
+# In-memory user store: email -> { "id", "email", "password_hash" }
+USERS = {}
+_NEXT_USER_ID = 1
+
+def _next_user_id():
+    global _NEXT_USER_ID
+    n = _NEXT_USER_ID
+    _NEXT_USER_ID += 1
+    return n
+
+def _make_token(user_id, email):
+    payload = {
+        "user_id": user_id,
+        "email": email,
+        "exp": datetime.utcnow() + timedelta(days=JWT_EXPIRY_DAYS),
+    }
+    return jwt.encode(payload, SECRET_KEY, algorithm="HS256")
 
 # Optional: FatSecret Platform API (barcode + nutrition). If set, used first; else Open Food Facts.
 FATSECRET_CLIENT_ID = os.environ.get("FATSECRET_CLIENT_ID", "").strip()
@@ -14,8 +46,6 @@ FATSECRET_CLIENT_SECRET = os.environ.get("FATSECRET_CLIENT_SECRET", "").strip()
 _FATSECRET_TOKEN = None
 
 # In-memory pantry storage with sample items for testing
-from datetime import date, timedelta
-
 def _sample_items():
     today = date.today()
     return [
@@ -60,12 +90,26 @@ def _compute_stats(items):
     }
 
 
+@app.after_request
+def after_request(response):
+    """Ensure CORS headers on every response so preflight (OPTIONS) succeeds."""
+    origin = request.origin if request.origin else "*"
+    if origin in ("http://localhost:3000", "http://127.0.0.1:3000"):
+        response.headers["Access-Control-Allow-Origin"] = origin
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    response.headers["Access-Control-Max-Age"] = "86400"
+    return response
+
+
 @app.route('/')
 def home():
     return jsonify({
         "message": "Welcome to WiseBite API!",
         "version": "1.0.0",
         "endpoints": {
+            "/auth/signup": "POST sign up (email, password)",
+            "/auth/login": "POST sign in (email, password)",
             "/items": "GET all, POST add",
             "/items/<id>": "GET one, DELETE one",
             "/stats": "GET dashboard statistics",
@@ -73,6 +117,59 @@ def home():
             "/recipes/generate": "POST generate recipe",
             "/produce/scan": "POST AI produce freshness (estimate)",
         }
+    })
+
+
+@app.route('/auth/signup', methods=['OPTIONS', 'POST'])
+def auth_signup():
+    if request.method == "OPTIONS":
+        return "", 204
+    data = request.get_json() or {}
+    email = (data.get("email") or "").strip().lower()
+    password = data.get("password") or ""
+
+    if not email:
+        return jsonify({"error": "Email is required"}), 400
+    if not re.match(r"^[^\s@]+@[^\s@]+\.[^\s@]+$", email):
+        return jsonify({"error": "Invalid email format"}), 400
+    if len(password) < 6:
+        return jsonify({"error": "Password must be at least 6 characters"}), 400
+
+    if email in USERS:
+        return jsonify({"error": "Email already registered"}), 409
+
+    user_id = _next_user_id()
+    USERS[email] = {
+        "id": user_id,
+        "email": email,
+        "password_hash": generate_password_hash(password),
+    }
+    token = _make_token(user_id, email)
+    return jsonify({
+        "token": token,
+        "user": {"id": user_id, "email": email},
+    }), 201
+
+
+@app.route('/auth/login', methods=['OPTIONS', 'POST'])
+def auth_login():
+    if request.method == "OPTIONS":
+        return "", 204
+    data = request.get_json() or {}
+    email = (data.get("email") or "").strip().lower()
+    password = data.get("password") or ""
+
+    if not email or not password:
+        return jsonify({"error": "Email and password are required"}), 400
+
+    user = USERS.get(email)
+    if not user or not check_password_hash(user["password_hash"], password):
+        return jsonify({"error": "Invalid email or password"}), 401
+
+    token = _make_token(user["id"], user["email"])
+    return jsonify({
+        "token": token,
+        "user": {"id": user["id"], "email": user["email"]},
     })
 
 

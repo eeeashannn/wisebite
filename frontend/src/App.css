@@ -104,6 +104,16 @@
   color: #229954;
 }
 
+.nav-tab-logout {
+  margin-left: auto;
+  color: #7f8c8d;
+}
+
+.nav-tab-logout:hover {
+  background: #fee;
+  color: #c0392b;
+}
+
 .main-content {
   padding: 2rem;
   max-width: 1200px;

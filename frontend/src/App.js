@@ -4,6 +4,7 @@ import ScanPage from "./components/ScanPage";
 import RecipesPage from "./components/RecipesPage";
 import ProduceAIPage from "./components/ProduceAIPage";
 import AddItemModal from "./components/AddItemModal";
+import AuthPage from "./components/AuthPage";
 import BrandLogo from "./components/BrandLogo";
 import { IconHome, IconCamera, IconChefHat, IconApple } from "./components/Icons";
 import "./App.css";
@@ -12,13 +13,32 @@ const API_BASE_URL = "http://127.0.0.1:5000";
 
 const VIEWS = { home: "home", scan: "scan", recipes: "recipes", produce: "produce" };
 
+function getStoredAuth() {
+  try {
+    const token = localStorage.getItem("token");
+    const userStr = localStorage.getItem("user");
+    if (token && userStr) {
+      const user = JSON.parse(userStr);
+      return { token, user };
+    }
+  } catch (_) {}
+  return null;
+}
+
 function App() {
+  const [auth, setAuth] = useState(getStoredAuth);
   const [items, setItems] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeView, setActiveView] = useState(VIEWS.home);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    setAuth(null);
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -40,7 +60,9 @@ function App() {
     }
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => {
+    if (auth) fetchData();
+  }, [auth]);
 
   const handleDeleteItem = async (itemId) => {
     try {
@@ -92,6 +114,14 @@ function App() {
     onAddItem: handleAddItem,
   };
 
+  if (!auth) {
+    return (
+      <div className="App">
+        <AuthPage onAuthSuccess={(payload) => setAuth({ token: payload.token, user: payload.user })} />
+      </div>
+    );
+  }
+
   return (
     <div className="App">
       <header className="topnav">
@@ -134,6 +164,13 @@ function App() {
           >
             <span className="nav-tab-icon"><IconApple size={20} /></span>
             <span>Produce AI</span>
+          </button>
+          <button
+            type="button"
+            className="nav-tab nav-tab-logout"
+            onClick={handleLogout}
+          >
+            Log out
           </button>
         </nav>
       </header>

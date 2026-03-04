@@ -5,7 +5,7 @@ import { formatDate } from '../utils/dateUtils';
 import { IconEdit, IconTrash } from './Icons';
 import './PantryItem.css';
 
-function PantryItem({ item, onDelete, showActions }) {
+function PantryItem({ item, onDelete, onEdit, showActions }) {
   const display = getItemDisplay(item);
   const daysRemaining = getDaysRemaining(item.expiry);
   const status = getStatus(daysRemaining);
@@ -25,7 +25,13 @@ function PantryItem({ item, onDelete, showActions }) {
     <div className="pantry-card">
       {showActions && (
         <div className="pantry-card-actions">
-          <button type="button" className="card-action-btn edit-btn" title="Edit" aria-label="Edit">
+          <button
+            type="button"
+            className="card-action-btn edit-btn"
+            title="Edit"
+            aria-label="Edit"
+            onClick={() => onEdit?.(item)}
+          >
             <IconEdit size={16} />
           </button>
           <button

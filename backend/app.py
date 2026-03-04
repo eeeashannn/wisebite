@@ -227,6 +227,33 @@ def get_item(item_id):
     return jsonify(item)
 
 
+@app.route('/items/<int:item_id>', methods=['PUT'])
+def update_item(item_id):
+    user = _get_current_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+    global PANTRY_ITEMS
+    item = next((i for i in PANTRY_ITEMS if i["id"] == item_id and i.get("user_id") == user["user_id"]), None)
+    if not item:
+        return jsonify({"error": "Item not found"}), 404
+    data = request.get_json() or {}
+    name = (data.get("name") or item["name"]).strip()
+    expiry = data.get("expiry") or item["expiry"]
+    if not name or not expiry:
+        return jsonify({"error": "name and expiry are required"}), 400
+    item["name"] = name
+    item["category"] = data.get("category", item.get("category", "Other"))
+    item["expiry"] = expiry
+    item["quantity"] = data.get("quantity", item.get("quantity", 1))
+    item["unit"] = data.get("unit", item.get("unit", "Pieces"))
+    item["notes"] = data.get("notes", item.get("notes", ""))
+    item["image_url"] = data.get("image_url") if "image_url" in data else item.get("image_url")
+    item["barcode"] = data.get("barcode") if "barcode" in data else item.get("barcode")
+    if data.get("added_date"):
+        item["added_date"] = data["added_date"]
+    return jsonify(item)
+
+
 @app.route('/items/<int:item_id>', methods=['DELETE'])
 def delete_item(item_id):
     user = _get_current_user()

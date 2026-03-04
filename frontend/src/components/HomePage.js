@@ -8,7 +8,7 @@ import './PantryList.css';
 
 const CATEGORIES = ['All Categories', 'Dairy', 'Meat', 'Vegetables', 'Fruits', 'Bakery', 'Pantry', 'Beverages', 'Frozen', 'Snacks', 'Other'];
 
-function HomePage({ items, stats, loading, error, onAddItemClick, onDeleteItem }) {
+function HomePage({ items, stats, loading, error, onAddItemClick, onEditItem, onDeleteItem }) {
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('All Categories');
 
@@ -96,6 +96,7 @@ function HomePage({ items, stats, loading, error, onAddItemClick, onDeleteItem }
               <PantryItem
                 key={item.id}
                 item={item}
+                onEdit={onEditItem}
                 onDelete={onDeleteItem}
                 showActions
               />

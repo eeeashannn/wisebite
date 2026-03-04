@@ -1,7 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import BarcodeScanner from './barcode/BarcodeScanner';
+import React, { useState, useEffect, useRef } from 'react';
+import { Html5Qrcode } from 'html5-qrcode';
 import { IconClose, IconCamera, IconCalendar } from './Icons';
 import './AddItemModal.css';
+
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000';
+const MODAL_CAMERA_MOUNT_ID = 'add-modal-camera-mount';
 
 const CATEGORIES = ['Other', 'Dairy', 'Meat', 'Vegetables', 'Fruits', 'Bakery', 'Pantry', 'Beverages', 'Frozen', 'Snacks'];
 const UNITS = ['Pieces', 'Kilograms', 'Grams', 'Liters', 'Milliliters', 'Packages', 'Boxes', 'Bottles'];
@@ -18,21 +21,26 @@ const defaultForm = {
   barcode: '',
 };
 
-function AddItemModal({ isOpen, onClose, onAddItem, initialValues }) {
+function AddItemModal({ isOpen, onClose, onAddItem, onUpdateItem, initialValues }) {
   const [formData, setFormData] = useState(defaultForm);
   const [errors, setErrors] = useState({});
   const [showBarcode, setShowBarcode] = useState(false);
+  const [showOptional, setShowOptional] = useState(false);
+  const [cameraError, setCameraError] = useState(null);
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const cameraRef = useRef(null);
+  const isEdit = !!(initialValues && initialValues.id);
 
   useEffect(() => {
     if (isOpen && initialValues) {
       setFormData({
         name: initialValues.name || '',
         category: initialValues.category || 'Other',
-        expiryDate: '',
+        expiryDate: initialValues.expiry || '',
         quantity: initialValues.quantity ?? 1,
         unit: initialValues.unit || 'Pieces',
-        purchaseDate: '',
-        notes: '',
+        purchaseDate: initialValues.added_date || '',
+        notes: (initialValues.notes || '').trim(),
         image_url: initialValues.image_url || '',
         barcode: initialValues.barcode || '',
       });
@@ -67,41 +75,90 @@ function AddItemModal({ isOpen, onClose, onAddItem, initialValues }) {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!validateForm()) return;
-    const newItem = {
+    const payload = {
       name: formData.name.trim(),
       category: formData.category,
       expiry: formatDate(formData.expiryDate),
       quantity: formData.quantity || 1,
       unit: formData.unit,
-      purchaseDate: formatDate(formData.purchaseDate),
       notes: formData.notes.trim(),
       image_url: formData.image_url || undefined,
       barcode: formData.barcode || undefined,
+      added_date: formatDate(formData.purchaseDate) || undefined,
     };
-    onAddItem(newItem);
+    if (isEdit && initialValues.id) {
+      onUpdateItem?.({ ...payload, id: initialValues.id });
+    } else {
+      onAddItem(payload);
+    }
     setFormData(defaultForm);
     setErrors({});
     setShowBarcode(false);
     onClose();
   };
 
-  const handleBarcodeProduct = (product) => {
-    setFormData(prev => ({
-      ...prev,
-      name: product.name || prev.name,
-      category: product.category || prev.category,
-      image_url: product.image_url || prev.image_url,
-      barcode: product.barcode || prev.barcode,
-      quantity: product.quantity ?? prev.quantity,
-      unit: product.unit || prev.unit,
-    }));
-    setShowBarcode(false);
+  const lookupBarcodeAndFill = async (code) => {
+    const trimmed = String(code).trim();
+    if (!trimmed) return;
+    setCameraError(null);
+    setLookupLoading(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/barcode/${encodeURIComponent(trimmed)}`);
+      const data = await res.json();
+      if (data.found) {
+        setFormData(prev => ({
+          ...prev,
+          name: data.name || prev.name,
+          category: data.category || 'Other',
+          image_url: data.image_url || prev.image_url,
+          barcode: trimmed,
+          quantity: data.quantity ?? prev.quantity,
+          unit: data.unit || prev.unit,
+        }));
+        setShowBarcode(false);
+      } else {
+        setCameraError(data.error || 'Product not found. Try again.');
+      }
+    } catch {
+      setCameraError('Could not reach server.');
+    } finally {
+      setLookupLoading(false);
+    }
   };
+
+  useEffect(() => {
+    if (!showBarcode || !isOpen) return;
+    setCameraError(null);
+    const scanner = new Html5Qrcode(MODAL_CAMERA_MOUNT_ID);
+    cameraRef.current = scanner;
+    const config = { fps: 10, qrbox: { width: 220, height: 120 } };
+    Html5Qrcode.getCameras()
+      .then((cameras) => {
+        if (!cameras || cameras.length === 0) {
+          setCameraError('No camera found.');
+          return;
+        }
+        const back = cameras.find((c) => /back|rear|environment/i.test(c.label));
+        const cameraId = back ? back.id : cameras[0].id;
+        return scanner.start(cameraId, config, (decodedText) => lookupBarcodeAndFill(decodedText), () => {});
+      })
+      .catch((err) => setCameraError(err?.message || 'Camera access failed.'));
+
+    return () => {
+      if (cameraRef.current) {
+        cameraRef.current.stop().catch(() => {});
+        cameraRef.current = null;
+      }
+    };
+  }, [showBarcode, isOpen]);
 
   const handleClose = () => {
     setFormData(defaultForm);
     setErrors({});
     setShowBarcode(false);
+    setShowOptional(false);
+    setCameraError(null);
+    setLookupLoading(false);
     onClose();
   };
 
@@ -111,7 +168,7 @@ function AddItemModal({ isOpen, onClose, onAddItem, initialValues }) {
     <div className="modal-overlay" onClick={handleClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2 className="modal-title">Add New Item</h2>
+          <h2 className="modal-title">{isEdit ? 'Edit Item' : 'Add New Item'}</h2>
           <button type="button" className="modal-close" onClick={handleClose} aria-label="Close"><IconClose size={24} /></button>
         </div>
 
@@ -124,15 +181,15 @@ function AddItemModal({ isOpen, onClose, onAddItem, initialValues }) {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="add-item-form">
-              <div className="form-row">
+            <form onSubmit={handleSubmit} className="add-item-form add-item-form-compact">
+              <div className="form-row form-row-2">
                 <div className="form-group full-width">
-                  <label htmlFor="name">Item Name <span className="required">*</span></label>
-                  <input type="text" id="name" name="name" value={formData.name} onChange={handleChange} placeholder="e.g., Organic Milk" className={errors.name ? 'error' : ''} />
+                  <label htmlFor="name">Name <span className="required">*</span></label>
+                  <input type="text" id="name" name="name" value={formData.name} onChange={handleChange} placeholder="e.g. Milk" className={errors.name ? 'error' : ''} />
                   {errors.name && <span className="error-message">{errors.name}</span>}
                 </div>
               </div>
-              <div className="form-row">
+              <div className="form-row form-row-2">
                 <div className="form-group">
                   <label htmlFor="category">Category</label>
                   <select id="category" name="category" value={formData.category} onChange={handleChange}>
@@ -140,7 +197,7 @@ function AddItemModal({ isOpen, onClose, onAddItem, initialValues }) {
                   </select>
                 </div>
                 <div className="form-group">
-                  <label htmlFor="expiryDate">Expiry Date <span className="required">*</span></label>
+                  <label htmlFor="expiryDate">Expiry <span className="required">*</span></label>
                   <div className="date-input-wrapper">
                     <input type="date" id="expiryDate" name="expiryDate" value={formData.expiryDate} onChange={handleChange} className={errors.expiryDate ? 'error' : ''} />
                     <span className="calendar-icon"><IconCalendar size={18} /></span>
@@ -148,7 +205,7 @@ function AddItemModal({ isOpen, onClose, onAddItem, initialValues }) {
                   {errors.expiryDate && <span className="error-message">{errors.expiryDate}</span>}
                 </div>
               </div>
-              <div className="form-row">
+              <div className="form-row form-row-2">
                 <div className="form-group">
                   <label htmlFor="quantity">Quantity</label>
                   <input type="number" id="quantity" name="quantity" value={formData.quantity} onChange={handleChange} min="1" />
@@ -159,28 +216,55 @@ function AddItemModal({ isOpen, onClose, onAddItem, initialValues }) {
                     {UNITS.map(unit => <option key={unit} value={unit}>{unit}</option>)}
                   </select>
                 </div>
-                <div className="form-group">
-                  <label htmlFor="purchaseDate">Purchase Date</label>
-                  <div className="date-input-wrapper">
-                    <input type="date" id="purchaseDate" name="purchaseDate" value={formData.purchaseDate} onChange={handleChange} />
-                    <span className="calendar-icon"><IconCalendar size={18} /></span>
+              </div>
+
+              <div className="form-optional">
+                <button type="button" className="form-optional-toggle" onClick={() => setShowOptional((v) => !v)} aria-expanded={showOptional}>
+                  {showOptional ? 'Hide optional fields' : 'Add optional details'}
+                </button>
+                {showOptional && (
+                  <div className="form-optional-fields">
+                    <div className="form-row form-row-2">
+                      <div className="form-group">
+                        <label htmlFor="purchaseDate">Purchase date</label>
+                        <div className="date-input-wrapper">
+                          <input type="date" id="purchaseDate" name="purchaseDate" value={formData.purchaseDate} onChange={handleChange} />
+                          <span className="calendar-icon"><IconCalendar size={18} /></span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="form-row">
+                      <div className="form-group full-width">
+                        <label htmlFor="notes">Notes</label>
+                        <textarea id="notes" name="notes" value={formData.notes} onChange={handleChange} placeholder="Optional notes..." rows="2" />
+                      </div>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
-              <div className="form-row">
-                <div className="form-group full-width">
-                  <label htmlFor="notes">Notes</label>
-                  <textarea id="notes" name="notes" value={formData.notes} onChange={handleChange} placeholder="Any additional notes..." rows="3" />
-                </div>
-              </div>
+
               <div className="form-actions">
                 <button type="button" className="btn-cancel" onClick={handleClose}>Cancel</button>
-                <button type="submit" className="btn-add"><span className="add-icon">+</span> Add Item</button>
+                <button type="submit" className="btn-add">
+                  {isEdit ? 'Save changes' : <><span className="add-icon">+</span> Add Item</>}
+                </button>
               </div>
             </form>
           </>
         ) : (
-          <BarcodeScanner onProductFound={handleBarcodeProduct} onClose={() => setShowBarcode(false)} />
+          <div className="add-modal-scan">
+            <div className="add-modal-scan-header">
+              <p className="add-modal-scan-hint">Point your camera at the barcode</p>
+              <button type="button" className="tab-btn" onClick={() => { setShowBarcode(false); setCameraError(null); }}>
+                Back to form
+              </button>
+            </div>
+            <div className="add-modal-camera-wrap">
+              <div id={MODAL_CAMERA_MOUNT_ID} className="add-modal-camera-mount" />
+              {cameraError && <p className="add-modal-camera-error">{cameraError}</p>}
+              {lookupLoading && <p className="add-modal-camera-loading">Looking up product…</p>}
+            </div>
+          </div>
         )}
       </div>
     </div>

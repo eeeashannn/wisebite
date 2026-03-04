@@ -33,6 +33,7 @@ function App() {
   const [error, setError] = useState(null);
   const [activeView, setActiveView] = useState(VIEWS.home);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState(null);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -117,6 +118,39 @@ function App() {
       if (res.ok) {
         fetchData();
         setIsModalOpen(false);
+        setEditingItem(null);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleUpdateItem = async (updatedItem) => {
+    if (!updatedItem?.id) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/items/${updatedItem.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify({
+          name: updatedItem.name,
+          category: updatedItem.category,
+          expiry: updatedItem.expiry,
+          quantity: updatedItem.quantity || 1,
+          unit: updatedItem.unit,
+          notes: updatedItem.notes,
+          image_url: updatedItem.image_url,
+          barcode: updatedItem.barcode,
+          added_date: updatedItem.added_date,
+        }),
+      });
+      if (res.status === 401) {
+        handleLogout();
+        return;
+      }
+      if (res.ok) {
+        fetchData();
+        setIsModalOpen(false);
+        setEditingItem(null);
       }
     } catch (err) {
       console.error(err);
@@ -129,9 +163,11 @@ function App() {
     loading,
     error,
     isModalOpen,
-    onCloseModal: () => setIsModalOpen(false),
-    onAddItemClick: () => setIsModalOpen(true),
+    onCloseModal: () => { setIsModalOpen(false); setEditingItem(null); },
+    onAddItemClick: () => { setEditingItem(null); setIsModalOpen(true); },
+    onEditItem: (item) => { setEditingItem(item); setIsModalOpen(true); },
     onAddItem: handleAddItem,
+    onUpdateItem: handleUpdateItem,
   };
 
   if (!auth) {
@@ -212,8 +248,10 @@ function App() {
 
       <AddItemModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => { setIsModalOpen(false); setEditingItem(null); }}
         onAddItem={handleAddItem}
+        onUpdateItem={handleUpdateItem}
+        initialValues={editingItem}
       />
     </div>
   );

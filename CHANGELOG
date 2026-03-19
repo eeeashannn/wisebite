@@ -1,20 +1,26 @@
-Change Logs
+Oct 29, 2025 — Repository setup (add README)
 
-October 29, 2025 - Set Up Repository
-Nov 2, 2025 - Poject Research
-Nov 5, 2025 - Initial Project setup
-Jan 08, 2026 - Initial Commit, Git Clean up
+Nov 5, 2025 — Initial project setup (Flask backend + React frontend)
 
-Jan 09, 2026 - Working on codes (Frontend)
+Jan 8, 2026 — Initial commit + .gitignore cleanup
 
-Jan 16, 2026 - Working on codes (Backend)
+Jan 9, 2026 — Frontend coding progress (Add new file)
 
-Jan 29, 2026 - Codes pushed into the repository.
+Jan 14, 2026 — Change log edits
 
-Feb 20, 2026 - Worked on Frontend and Backend to make app more visually appealing and functional. 
+Jan 29, 2026 — Frontend/backend initial code + merge updates
 
-March 1, 2026 - Worked on app description.  
+Feb 20, 2026 — Major frontend/backend improvements:
+                Home page consolidation (Dashboard + Pantry)
+                Camera fixes
+                Barcode API testing switch (Open Food Facts -> FatSecret)
 
-March 6, 2026 -  Fixed "Stop Camera" button causing it to crash the app.
-              -  Sign up/Sign in page created, removed hardcoded items. 
+Mar 1, 2026 — README + changelog updates
 
+Mar 4, 2026 — Major app feature release:
+                Fixed Stop Camera crash
+                Added Sign in/Sign up
+                Added authenticated API requests
+                Added user-specific inventory management
+                Improved Add Item modal (optional fields, barcode scan, editing)
+                Added backend support for item updates  

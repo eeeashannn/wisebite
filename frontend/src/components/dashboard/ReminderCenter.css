@@ -1,0 +1,40 @@
+.reminder-center {
+  margin-top: 1rem;
+}
+
+.reminder-title {
+  margin: 0 0 0.6rem;
+  font-size: 1.1rem;
+  color: #2c3e50;
+}
+
+.reminder-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.reminder-card {
+  background: white;
+  border-radius: 10px;
+  padding: 0.8rem;
+  border: 1px solid #e8edf2;
+}
+
+.reminder-label {
+  margin: 0;
+  color: #7f8c8d;
+  font-size: 0.85rem;
+}
+
+.reminder-count {
+  margin: 0.2rem 0 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+@media (max-width: 768px) {
+  .reminder-grid {
+    grid-template-columns: 1fr;
+  }
+}

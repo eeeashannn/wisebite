@@ -268,9 +268,36 @@
   color: white;
 }
 
+.delivery-btn.add-shopping {
+  border: none;
+  background: #2c3e50;
+  color: white;
+  cursor: pointer;
+}
+
 .delivery-btn.ubereats {
   background: #06c167;
   color: white;
+}
+
+.use-recipe-btn {
+  width: 100%;
+  border: none;
+  border-radius: 8px;
+  background: #2c3e50;
+  color: white;
+  font-weight: 600;
+  padding: 0.8rem 1rem;
+  cursor: pointer;
+}
+
+.use-recipe-btn:hover:not(:disabled) {
+  background: #22303d;
+}
+
+.use-recipe-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
 }
 
 @media (max-width: 768px) {

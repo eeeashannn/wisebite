@@ -41,12 +41,14 @@ const RECIPE_TEMPLATES = {
 const DELIVEROO_BASE = 'https://deliveroo.co.uk/search?q=';
 const UBER_EATS_BASE = 'https://www.ubereats.com/gb/search?q=';
 
-function RecipeGenerator({ items, onGenerateRecipe }) {
+function RecipeGenerator({ items, authToken, onGenerateRecipe, onUseRecipeIngredients, onRecipeMissingAdded }) {
   const [loading, setLoading] = useState(false);
   const [recipe, setRecipe] = useState(null);
   const [dietary, setDietary] = useState('Any');
   const [cuisine, setCuisine] = useState('Any');
   const [maxTime, setMaxTime] = useState(null);
+  const [useRecipeLoading, setUseRecipeLoading] = useState(false);
+  const [shoppingLoading, setShoppingLoading] = useState(false);
 
   const buildBody = () => {
     const body = { items };
@@ -110,6 +112,33 @@ function RecipeGenerator({ items, onGenerateRecipe }) {
       alert('Failed to generate recipe. Please try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const applyRecipeToPantry = async () => {
+    if (!recipe || !onUseRecipeIngredients) return;
+    setUseRecipeLoading(true);
+    try {
+      await onUseRecipeIngredients(recipe);
+    } finally {
+      setUseRecipeLoading(false);
+    }
+  };
+
+  const addMissingToShoppingList = async () => {
+    if (!recipe?.missingIngredients?.length || !authToken) return;
+    setShoppingLoading(true);
+    try {
+      await fetch(`${API_BASE_URL}/shopping-list/from-recipe`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify({ missing_ingredients: recipe.missingIngredients }),
+      });
+      onRecipeMissingAdded?.();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setShoppingLoading(false);
     }
   };
 
@@ -251,6 +280,14 @@ function RecipeGenerator({ items, onGenerateRecipe }) {
                 ))}
               </ul>
               <div className="delivery-links">
+                <button
+                  type="button"
+                  className="delivery-btn add-shopping"
+                  onClick={addMissingToShoppingList}
+                  disabled={shoppingLoading}
+                >
+                  {shoppingLoading ? "Adding..." : "Add missing to shopping list"}
+                </button>
                 <a href={`${DELIVEROO_BASE}${encodeURIComponent(recipe.name + ' ingredients')}`} target="_blank" rel="noopener noreferrer" className="delivery-btn deliveroo">
                   Order via Deliveroo
                 </a>
@@ -268,6 +305,14 @@ function RecipeGenerator({ items, onGenerateRecipe }) {
               ))}
             </ol>
           </div>
+          <button
+            type="button"
+            className="use-recipe-btn"
+            onClick={applyRecipeToPantry}
+            disabled={useRecipeLoading || !onUseRecipeIngredients}
+          >
+            {useRecipeLoading ? 'Updating pantry…' : 'Cooked this - use ingredients'}
+          </button>
         </div>
       )}
     </div>

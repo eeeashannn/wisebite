@@ -140,6 +140,9 @@ function ProduceAIPage() {
       {result && (
         <div className="produce-result">
           <p className="produce-estimate-label">{labels[result.estimate] || result.estimate}</p>
+          {result.detected_produce && <p className="produce-result-message">Detected produce: {result.detected_produce}</p>}
+          {typeof result.confidence === "number" && <p className="produce-result-message">Confidence: {Math.round(result.confidence * 100)}%</p>}
+          {result.risk_level && <p className="produce-result-message">Risk level: {result.risk_level}</p>}
           <p className="produce-result-message">{result.message}</p>
           <p className="produce-result-suggestion">{result.suggestion}</p>
         </div>

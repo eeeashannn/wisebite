@@ -1,6 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import StatsCards from './dashboard/StatsCards';
+import NeedsAttentionSection from './dashboard/NeedsAttentionSection';
+import ReminderCenter from './dashboard/ReminderCenter';
 import PantryItem from './PantryItem';
+import ActivityFeed from './activity/ActivityFeed';
 import { IconSearch } from './Icons';
 import { sortItemsByExpiry } from '../utils/dateUtils';
 import './HomePage.css';
@@ -8,7 +11,18 @@ import './PantryList.css';
 
 const CATEGORIES = ['All Categories', 'Dairy', 'Meat', 'Vegetables', 'Fruits', 'Bakery', 'Pantry', 'Beverages', 'Frozen', 'Snacks', 'Other'];
 
-function HomePage({ items, stats, loading, error, onAddItemClick, onEditItem, onDeleteItem }) {
+function HomePage({
+  items,
+  stats,
+  reminders,
+  activityEvents,
+  loading,
+  error,
+  onAddItemClick,
+  onEditItem,
+  onDeleteItem,
+  onConsumeItem,
+}) {
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('All Categories');
 
@@ -51,6 +65,8 @@ function HomePage({ items, stats, loading, error, onAddItemClick, onEditItem, on
       <p className="home-page-subtitle">Monitor your pantry and reduce food waste.</p>
 
       <StatsCards stats={stats || { total_items: 0, fresh: 0, expiring_soon: 0, expired: 0 }} />
+      <ReminderCenter reminders={reminders} />
+      <NeedsAttentionSection items={items || []} onConsumeItem={onConsumeItem} />
 
       <section className="home-pantry-section">
         <div className="pantry-page-header">
@@ -98,12 +114,14 @@ function HomePage({ items, stats, loading, error, onAddItemClick, onEditItem, on
                 item={item}
                 onEdit={onEditItem}
                 onDelete={onDeleteItem}
+                onConsume={onConsumeItem}
                 showActions
               />
             ))}
           </div>
         )}
       </section>
+      <ActivityFeed events={activityEvents || []} />
     </div>
   );
 }

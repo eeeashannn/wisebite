@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { getDaysRemaining, getExpiringItems } from '../utils/dateUtils';
 import RecipeGenerator from './recipes/RecipeGenerator';
 import './RecipesPage.css';
 
-function RecipesPage({ items }) {
+function RecipesPage({ items, authToken, onUseRecipeIngredients, onRecipeMissingAdded }) {
   const priorityItems = getExpiringItems(items || [], 7);
 
   return (
@@ -28,7 +28,12 @@ function RecipesPage({ items }) {
         </div>
       )}
 
-      <RecipeGenerator items={items || []} />
+      <RecipeGenerator
+        items={items || []}
+        authToken={authToken}
+        onUseRecipeIngredients={onUseRecipeIngredients}
+        onRecipeMissingAdded={onRecipeMissingAdded}
+      />
     </div>
   );
 }

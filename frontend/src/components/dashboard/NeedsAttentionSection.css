@@ -31,6 +31,12 @@
   color: #229954;
 }
 
+.attention-count {
+  color: #7f8c8d;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
 .items-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

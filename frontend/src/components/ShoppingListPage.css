@@ -1,0 +1,96 @@
+.shopping-page {
+  padding: 0;
+}
+
+.shopping-title {
+  font-size: 2rem;
+  margin: 0 0 0.25rem;
+}
+
+.shopping-subtitle {
+  color: #7f8c8d;
+  margin: 0 0 1.2rem;
+}
+
+.shopping-add-row {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.shopping-input {
+  flex: 1;
+  border: 1px solid #d9dee5;
+  border-radius: 8px;
+  padding: 0.65rem 0.8rem;
+}
+
+.shopping-add-btn {
+  border: none;
+  background: #27ae60;
+  color: white;
+  border-radius: 8px;
+  padding: 0.6rem 1rem;
+  cursor: pointer;
+}
+
+.shopping-card {
+  background: white;
+  border-radius: 12px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.shopping-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.suggestion-chip {
+  border: 1px solid #b8e5c8;
+  background: #eef9f2;
+  color: #1f7f47;
+  border-radius: 999px;
+  padding: 0.35rem 0.7rem;
+  cursor: pointer;
+}
+
+.shopping-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.shopping-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid #eef1f4;
+  border-radius: 8px;
+  padding: 0.65rem 0.75rem;
+}
+
+.shopping-item-name {
+  margin: 0;
+  font-weight: 600;
+}
+
+.shopping-item-meta {
+  margin: 0.2rem 0 0;
+  color: #7f8c8d;
+  font-size: 0.85rem;
+}
+
+.shopping-remove-btn {
+  border: none;
+  background: #fdeeee;
+  color: #c0392b;
+  border-radius: 8px;
+  padding: 0.4rem 0.6rem;
+  cursor: pointer;
+}
+
+.shopping-empty {
+  color: #7f8c8d;
+}

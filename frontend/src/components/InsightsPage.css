@@ -1,0 +1,46 @@
+.insights-page {
+  padding: 0;
+}
+
+.insights-title {
+  margin: 0 0 0.2rem;
+  font-size: 2rem;
+}
+
+.insights-subtitle {
+  margin: 0 0 1rem;
+  color: #7f8c8d;
+}
+
+.insights-grid {
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 0.8rem;
+}
+
+.insight-card {
+  background: white;
+  border-radius: 12px;
+  padding: 1rem;
+}
+
+.insight-card p {
+  margin: 0;
+  color: #7f8c8d;
+}
+
+.insight-card h3 {
+  margin: 0.2rem 0 0;
+  font-size: 1.8rem;
+}
+
+.insights-list {
+  margin: 0.5rem 0 0;
+}
+
+@media (max-width: 768px) {
+  .insights-grid {
+    grid-template-columns: 1fr;
+  }
+}

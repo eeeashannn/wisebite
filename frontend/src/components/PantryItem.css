@@ -110,3 +110,19 @@
   color: #27ae60;
 }
 
+.consume-btn {
+  margin-top: 0.75rem;
+  width: 100%;
+  border: 1px solid #27ae60;
+  background: #eefaf1;
+  color: #1e874b;
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.consume-btn:hover {
+  background: #e1f6e8;
+}
+

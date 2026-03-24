@@ -1,0 +1,42 @@
+.activity-feed {
+  margin-top: 1.2rem;
+  background: white;
+  border-radius: 12px;
+  padding: 1rem;
+}
+
+.activity-title {
+  margin: 0 0 0.75rem;
+  font-size: 1.1rem;
+}
+
+.activity-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.activity-row {
+  border: 1px solid #edf1f4;
+  border-radius: 8px;
+  padding: 0.65rem 0.75rem;
+}
+
+.activity-message {
+  margin: 0;
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.activity-time {
+  margin: 0.2rem 0 0;
+  color: #7f8c8d;
+  font-size: 0.8rem;
+}
+
+.activity-empty {
+  color: #7f8c8d;
+}

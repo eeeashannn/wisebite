@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { IconCamera } from './Icons';
 import AddItemModal from './AddItemModal';
@@ -13,7 +13,6 @@ function ScanPage({ items, onAddItemClick, onAddItem }) {
   const [barcodeInput, setBarcodeInput] = useState('');
   const [lookupLoading, setLookupLoading] = useState(false);
   const [lookupError, setLookupError] = useState(null);
-  const [product, setProduct] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [prefill, setPrefill] = useState(null);
   const html5QrRef = useRef(null);
@@ -50,7 +49,14 @@ function ScanPage({ items, onAddItemClick, onAddItem }) {
     }
   };
 
-  const lookupAndOpenModal = async (code) => {
+  const stopCamera = useCallback(() => {
+    setCameraActive(false);
+    setCameraError(null);
+    // Let the useEffect cleanup handle stopping the scanner to avoid
+    // "Cannot transition to a new state, already under transition"
+  }, []);
+
+  const lookupAndOpenModal = useCallback(async (code) => {
     const trimmed = String(code).trim();
     if (!trimmed) return;
     setLookupError(null);
@@ -77,14 +83,7 @@ function ScanPage({ items, onAddItemClick, onAddItem }) {
     } finally {
       setLookupLoading(false);
     }
-  };
-
-  const stopCamera = () => {
-    setCameraActive(false);
-    setCameraError(null);
-    // Let the useEffect cleanup handle stopping the scanner to avoid
-    // "Cannot transition to a new state, already under transition"
-  };
+  }, [stopCamera]);
 
   useEffect(() => {
     if (!cameraActive) return;
@@ -117,7 +116,7 @@ function ScanPage({ items, onAddItemClick, onAddItem }) {
         html5QrRef.current = null;
       }
     };
-  }, [cameraActive]);
+  }, [cameraActive, lookupAndOpenModal]);
 
   return (
     <div className="scan-page">

@@ -1,14 +1,13 @@
 import React from 'react';
-import { getDaysRemaining, getStatus } from '../utils/dateUtils';
+import { getDaysRemaining } from '../utils/dateUtils';
 import { getItemDisplay } from '../utils/itemImage';
 import { formatDate } from '../utils/dateUtils';
 import { IconEdit, IconTrash } from './Icons';
 import './PantryItem.css';
 
-function PantryItem({ item, onDelete, onEdit, showActions }) {
+function PantryItem({ item, onDelete, onEdit, onConsume, showActions }) {
   const display = getItemDisplay(item);
   const daysRemaining = getDaysRemaining(item.expiry);
-  const status = getStatus(daysRemaining);
   const quantity = item.quantity || 1;
   const unit = item.unit || 'units';
   const category = item.category || 'Pantry';
@@ -62,6 +61,15 @@ function PantryItem({ item, onDelete, onEdit, showActions }) {
         <span className="expiry-dot" data-expired={daysRemaining <= 0} />
         {expiryLabel}
       </p>
+      {onConsume && (
+        <button
+          type="button"
+          className="consume-btn"
+          onClick={() => onConsume(item.id, 1)}
+        >
+          Consume 1
+        </button>
+      )}
     </div>
   );
 }

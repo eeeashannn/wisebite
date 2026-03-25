@@ -6,6 +6,8 @@ import './AddItemModal.css';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000';
 const MODAL_CAMERA_MOUNT_ID = 'add-modal-camera-mount';
+const CAMERA_HTTPS_MESSAGE =
+  'Camera needs a secure connection (HTTPS). On your phone, open the app over HTTPS or use manual entry below.';
 
 const CATEGORIES = ['Other', 'Dairy', 'Meat', 'Vegetables', 'Fruits', 'Bakery', 'Pantry', 'Beverages', 'Frozen', 'Snacks'];
 const UNITS = ['Pieces', 'Kilograms', 'Grams', 'Liters', 'Milliliters', 'Packages', 'Boxes', 'Bottles'];
@@ -22,6 +24,31 @@ const defaultForm = {
   barcode: '',
 };
 
+function isLikelyMobileDevice() {
+  if (typeof navigator === 'undefined') return false;
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
+
+function normalizeScannerError(err) {
+  const msg = String(err?.message ?? err ?? '');
+  if (/notallowederror|permission denied|denied|not allowed/i.test(msg)) {
+    return 'Camera access was denied. Allow camera for this site in your browser settings.';
+  }
+  if (/notfounderror|no camera|no devices|devices? found.*0/i.test(msg)) {
+    return 'No camera was found on this device.';
+  }
+  if (/insecure|https|secure context|getusermedia/i.test(msg)) {
+    return CAMERA_HTTPS_MESSAGE;
+  }
+  if (/overconstrainederror|constraint/i.test(msg)) {
+    return 'Could not use this camera orientation on the device. Try again or use manual entry below.';
+  }
+  if (/notreadableerror|busy|in use/i.test(msg)) {
+    return 'Camera is busy or not readable. Close other camera apps and try again.';
+  }
+  return 'Could not start the camera. Use manual entry below.';
+}
+
 function AddItemModal({ isOpen, onClose, onAddItem, onUpdateItem, initialValues }) {
   const [formData, setFormData] = useState(defaultForm);
   const [errors, setErrors] = useState({});
@@ -30,7 +57,34 @@ function AddItemModal({ isOpen, onClose, onAddItem, onUpdateItem, initialValues 
   const [cameraError, setCameraError] = useState(null);
   const [lookupLoading, setLookupLoading] = useState(false);
   const cameraRef = useRef(null);
+  const scannerStartedRef = useRef(false);
   const isEdit = !!(initialValues && initialValues.id);
+
+  const safeStopScanner = () => {
+    const scanner = cameraRef.current;
+    if (!scanner) return;
+
+    const done = () => {
+      try {
+        scanner.clear?.();
+      } catch {
+        // ignore
+      }
+      cameraRef.current = null;
+      scannerStartedRef.current = false;
+    };
+
+    if (!scannerStartedRef.current) {
+      done();
+      return;
+    }
+
+    try {
+      Promise.resolve(scanner.stop()).then(done).catch(done);
+    } catch {
+      done();
+    }
+  };
 
   useEffect(() => {
     if (isOpen && initialValues) {
@@ -147,26 +201,66 @@ function AddItemModal({ isOpen, onClose, onAddItem, onUpdateItem, initialValues 
   useEffect(() => {
     if (!showBarcode || !isOpen) return;
     setCameraError(null);
+    scannerStartedRef.current = false;
+
+    if (typeof window !== 'undefined' && window.isSecureContext !== true) {
+      setCameraError(CAMERA_HTTPS_MESSAGE);
+      cameraRef.current = null;
+      return undefined;
+    }
+
     const scanner = new Html5Qrcode(MODAL_CAMERA_MOUNT_ID);
     cameraRef.current = scanner;
-    const config = { fps: 10, qrbox: safeBarcodeQrBox };
-    Html5Qrcode.getCameras()
-      .then((cameras) => {
-        if (!cameras || cameras.length === 0) {
-          setCameraError('No camera found.');
-          return;
-        }
-        const back = cameras.find((c) => /back|rear|environment/i.test(c.label));
+
+    const isMobile = isLikelyMobileDevice();
+    const config = { fps: isMobile ? 5 : 10, qrbox: safeBarcodeQrBox };
+
+    const startByCameraId = () =>
+      Html5Qrcode.getCameras().then((cameras) => {
+        if (!cameras || cameras.length === 0) throw new Error('No camera found.');
+        const back = cameras.find((c) => /back|rear|environment/i.test(c.label || ''));
         const cameraId = back ? back.id : cameras[0].id;
         return scanner.start(cameraId, config, (decodedText) => lookupBarcodeAndFill(decodedText), () => {});
-      })
-      .catch((err) => setCameraError(err?.message || 'Camera access failed.'));
+      });
+
+    const startByFacingMode = () =>
+      scanner.start(
+        { facingMode: { ideal: 'environment' } },
+        config,
+        (decodedText) => lookupBarcodeAndFill(decodedText),
+        () => {}
+      );
+
+    const start = async () => {
+      try {
+        if (isMobile) {
+          try {
+            await startByFacingMode();
+          } catch (err1) {
+            try {
+              scanner.clear?.();
+            } catch {
+              // ignore
+            }
+            await startByCameraId();
+          }
+        } else {
+          try {
+            await startByCameraId();
+          } catch {
+            await startByFacingMode();
+          }
+        }
+        scannerStartedRef.current = true;
+      } catch (err) {
+        setCameraError(normalizeScannerError(err));
+      }
+    };
+
+    start();
 
     return () => {
-      if (cameraRef.current) {
-        cameraRef.current.stop().catch(() => {});
-        cameraRef.current = null;
-      }
+      safeStopScanner();
     };
   }, [showBarcode, isOpen]);
 

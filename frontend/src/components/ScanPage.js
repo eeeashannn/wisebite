@@ -7,6 +7,33 @@ import './ScanPage.css';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000';
 const SCAN_MOUNT_ID = 'scan-camera-mount';
+const CAMERA_HTTPS_MESSAGE =
+  'Camera needs a secure connection (HTTPS). On your phone, open the app over HTTPS or use manual entry below.';
+
+function isLikelyMobileDevice() {
+  if (typeof navigator === 'undefined') return false;
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
+
+function normalizeScannerError(err) {
+  const msg = String(err?.message ?? err ?? '');
+  if (/notallowederror|permission denied|denied|not allowed/i.test(msg)) {
+    return 'Camera access was denied. Allow camera for this site in your browser settings.';
+  }
+  if (/notfounderror|no camera|no devices|devices? found.*0/i.test(msg)) {
+    return 'No camera was found on this device.';
+  }
+  if (/insecure|https|secure context|getusermedia/i.test(msg)) {
+    return CAMERA_HTTPS_MESSAGE;
+  }
+  if (/overconstrainederror|constraint/i.test(msg)) {
+    return 'Could not use this camera orientation on the device. Try again or use manual entry below.';
+  }
+  if (/notreadableerror|busy|in use/i.test(msg)) {
+    return 'Camera is busy or not readable. Close other camera apps and try again.';
+  }
+  return 'Could not start the camera. Use manual entry below.';
+}
 
 function ScanPage({ items, onAddItemClick, onAddItem }) {
   const [cameraActive, setCameraActive] = useState(false);
@@ -17,6 +44,7 @@ function ScanPage({ items, onAddItemClick, onAddItem }) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [prefill, setPrefill] = useState(null);
   const html5QrRef = useRef(null);
+  const scannerStartedRef = useRef(false);
 
   const handleLookup = async (e) => {
     e?.preventDefault();
@@ -57,6 +85,33 @@ function ScanPage({ items, onAddItemClick, onAddItem }) {
     // "Cannot transition to a new state, already under transition"
   }, []);
 
+  const safeStopScanner = useCallback(() => {
+    const scanner = html5QrRef.current;
+    if (!scanner) return;
+
+    const done = () => {
+      try {
+        scanner.clear?.();
+      } catch {
+        // ignore
+      }
+      html5QrRef.current = null;
+      scannerStartedRef.current = false;
+    };
+
+    // If start never succeeded, stop() can throw; just clear.
+    if (!scannerStartedRef.current) {
+      done();
+      return;
+    }
+
+    try {
+      Promise.resolve(scanner.stop()).then(done).catch(done);
+    } catch {
+      done();
+    }
+  }, []);
+
   const lookupAndOpenModal = useCallback(async (code) => {
     const trimmed = String(code).trim();
     if (!trimmed) return;
@@ -89,34 +144,80 @@ function ScanPage({ items, onAddItemClick, onAddItem }) {
   useEffect(() => {
     if (!cameraActive) return;
     setCameraError(null);
+    scannerStartedRef.current = false;
+
+    // iOS Safari requires secure contexts for camera APIs.
+    if (typeof window !== 'undefined' && window.isSecureContext !== true) {
+      setCameraError(CAMERA_HTTPS_MESSAGE);
+      return undefined;
+    }
+
     const scanner = new Html5Qrcode(SCAN_MOUNT_ID);
     html5QrRef.current = scanner;
 
-    const config = { fps: 10, qrbox: safeBarcodeQrBox };
-
-    Html5Qrcode.getCameras()
-      .then((cameras) => {
-        if (!cameras || cameras.length === 0) {
-          setCameraError('No camera found.');
-          return;
-        }
-        const back = cameras.find((c) => /back|rear|environment/i.test(c.label));
-        const cameraId = back ? back.id : cameras[0].id;
-        return scanner.start(cameraId, config, (decodedText) => {
-          lookupAndOpenModal(decodedText);
-        }, () => {});
-      })
-      .then(() => {})
-      .catch((err) => {
-        setCameraError(err?.message || 'Camera access failed. Use manual entry below.');
-      });
-
     return () => {
-      if (html5QrRef.current) {
-        html5QrRef.current.stop().catch(() => {});
-        html5QrRef.current = null;
+      safeStopScanner();
+    };
+  }, [cameraActive, lookupAndOpenModal, safeStopScanner]);
+
+  // Start camera after mount; keep this separate so cleanup is safe.
+  useEffect(() => {
+    if (!cameraActive) return;
+    const scanner = html5QrRef.current;
+    if (!scanner) return;
+
+    const isMobile = isLikelyMobileDevice();
+
+    const start = async () => {
+      try {
+        if (isMobile) {
+          try {
+            await scanner.start(
+              { facingMode: { ideal: 'environment' } },
+              { fps: 5, qrbox: safeBarcodeQrBox },
+              (decodedText) => lookupAndOpenModal(decodedText),
+              () => {}
+            );
+          } catch (err1) {
+            // Failed facingMode start; release constraints and retry by device id list.
+            try {
+              scanner.clear?.();
+            } catch {
+              // ignore
+            }
+            await Html5Qrcode.getCameras().then((cameras) => {
+              if (!cameras || cameras.length === 0) throw err1;
+              const back = cameras.find((c) => /back|rear|environment/i.test(c.label || ''));
+              const cameraId = back ? back.id : cameras[0].id;
+              return scanner.start(
+                cameraId,
+                { fps: 5, qrbox: safeBarcodeQrBox },
+                (decodedText) => lookupAndOpenModal(decodedText),
+                () => {}
+              );
+            });
+          }
+        } else {
+          // Desktop: prefer camera id list (more reliable than facingMode on USB webcams).
+          await Html5Qrcode.getCameras().then((cameras) => {
+            if (!cameras || cameras.length === 0) throw new Error('No camera found.');
+            const back = cameras.find((c) => /back|rear|environment/i.test(c.label || ''));
+            const cameraId = back ? back.id : cameras[0].id;
+            return scanner.start(
+              cameraId,
+              { fps: 10, qrbox: safeBarcodeQrBox },
+              (decodedText) => lookupAndOpenModal(decodedText),
+              () => {}
+            );
+          });
+        }
+        scannerStartedRef.current = true;
+      } catch (err) {
+        setCameraError(normalizeScannerError(err));
       }
     };
+
+    start();
   }, [cameraActive, lookupAndOpenModal]);
 
   return (

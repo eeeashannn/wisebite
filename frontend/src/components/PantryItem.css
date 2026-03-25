@@ -164,3 +164,17 @@
   background: #e1f6e8;
 }
 
+@media (max-width: 480px) {
+  .consume-btn {
+    min-height: 44px;
+    padding: 0.65rem 0.75rem;
+    box-sizing: border-box;
+  }
+
+  .card-action-btn {
+    width: 44px;
+    height: 44px;
+    box-sizing: border-box;
+  }
+}
+

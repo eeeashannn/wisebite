@@ -11,24 +11,58 @@ import jwt
 import requests
 
 app = Flask(__name__)
+
+# Bind: default 0.0.0.0 so phones on the same LAN can reach the API. Use FLASK_RUN_HOST=127.0.0.1 for localhost-only.
+FLASK_RUN_HOST = os.environ.get("FLASK_RUN_HOST", "0.0.0.0")
+FLASK_RUN_PORT = int(os.environ.get("FLASK_RUN_PORT", "5050"))
+
+_BASE_CORS_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+_extra_cors = [
+    o.strip()
+    for o in os.environ.get("WISEBITE_CORS_ORIGINS", "").split(",")
+    if o.strip()
+]
+_cors_allow_all = os.environ.get("WISEBITE_CORS_ALLOW_ALL", "").lower() in ("1", "true", "yes")
+# When listening on all interfaces, allow any browser Origin (e.g. http://192.168.x.x:3000). Tighten with FLASK_RUN_HOST=127.0.0.1.
+if _cors_allow_all or FLASK_RUN_HOST == "0.0.0.0":
+    _cors_origins = "*"
+else:
+    _cors_origins = _BASE_CORS_ORIGINS + _extra_cors
+
 # Allow frontend origin for CORS; preflight (OPTIONS) must succeed for POST with JSON
 CORS(
     app,
-    resources={
-        r"/*": {
-            "origins": [
-                "http://localhost:3000",
-                "http://127.0.0.1:3000",
-                "http://localhost:5173",
-                "http://127.0.0.1:5173",
-            ],
-        }
-    },
+    resources={r"/*": {"origins": _cors_origins}},
     allow_headers=["Content-Type", "Authorization"],
     expose_headers=["Content-Type"],
     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     supports_credentials=False,
 )
+
+# Some deploy environments (e.g. certain reverse proxies) can result in
+# preflight responses missing `Access-Control-Allow-Origin`. Ensure the header
+# is present when the browser sends an Origin.
+@app.after_request
+def _force_cors_headers(resp):
+    origin = request.headers.get("Origin")
+    if origin and not resp.headers.get("Access-Control-Allow-Origin"):
+        resp.headers["Access-Control-Allow-Origin"] = origin
+        # Ensure caches/keying take the Origin into account.
+        vary = resp.headers.get("Vary")
+        resp.headers["Vary"] = (vary + ", Origin") if vary else "Origin" 
+
+    # Belt-and-suspenders: make sure preflight has the allow-* headers too.
+    if request.method == "OPTIONS":
+        resp.headers.setdefault("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+        resp.headers.setdefault("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        resp.headers.setdefault("Access-Control-Max-Age", "86400")
+
+    return resp
 
 SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-change-in-production")
 JWT_EXPIRY_DAYS = 7
@@ -1078,5 +1112,5 @@ def produce_scan():
     })
 
 
-if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+if __name__ == "__main__":
+    app.run(debug=True, host=FLASK_RUN_HOST, port=FLASK_RUN_PORT)

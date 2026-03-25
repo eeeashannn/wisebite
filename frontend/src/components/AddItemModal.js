@@ -2,9 +2,16 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { IconClose, IconCamera, IconCalendar } from './Icons';
 import { safeBarcodeQrBox } from '../utils/safeBarcodeQrBox';
+import {
+  CAMERA_HTTPS_MESSAGE,
+  clearHtml5ScannerMount,
+  isCameraSecureContext,
+  normalizeScannerError,
+  startBarcodeScannerWithFallback,
+} from '../utils/barcodeCamera';
 import './AddItemModal.css';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000';
+import { getApiBaseUrl } from '../config';
 const MODAL_CAMERA_MOUNT_ID = 'add-modal-camera-mount';
 
 const CATEGORIES = ['Other', 'Dairy', 'Meat', 'Vegetables', 'Fruits', 'Bakery', 'Pantry', 'Beverages', 'Frozen', 'Snacks'];
@@ -30,7 +37,30 @@ function AddItemModal({ isOpen, onClose, onAddItem, onUpdateItem, initialValues 
   const [cameraError, setCameraError] = useState(null);
   const [lookupLoading, setLookupLoading] = useState(false);
   const cameraRef = useRef(null);
+  const scannerStartedRef = useRef(false);
   const isEdit = !!(initialValues && initialValues.id);
+
+  const safeStopScanner = () => {
+    const scanner = cameraRef.current;
+    if (!scanner) {
+      scannerStartedRef.current = false;
+      return;
+    }
+    const done = () => {
+      clearHtml5ScannerMount(scanner);
+      cameraRef.current = null;
+      scannerStartedRef.current = false;
+    };
+    if (!scannerStartedRef.current) {
+      done();
+      return;
+    }
+    try {
+      Promise.resolve(scanner.stop()).then(done).catch(done);
+    } catch {
+      done();
+    }
+  };
 
   useEffect(() => {
     if (isOpen && initialValues) {
@@ -121,7 +151,7 @@ function AddItemModal({ isOpen, onClose, onAddItem, onUpdateItem, initialValues 
     setCameraError(null);
     setLookupLoading(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/barcode/${encodeURIComponent(trimmed)}`);
+      const res = await fetch(`${getApiBaseUrl()}/barcode/${encodeURIComponent(trimmed)}`);
       const data = await res.json();
       if (data.found) {
         setFormData(prev => ({
@@ -147,26 +177,35 @@ function AddItemModal({ isOpen, onClose, onAddItem, onUpdateItem, initialValues 
   useEffect(() => {
     if (!showBarcode || !isOpen) return;
     setCameraError(null);
+    scannerStartedRef.current = false;
+
+    if (!isCameraSecureContext()) {
+      setCameraError(CAMERA_HTTPS_MESSAGE);
+      cameraRef.current = null;
+      return undefined;
+    }
+
     const scanner = new Html5Qrcode(MODAL_CAMERA_MOUNT_ID);
     cameraRef.current = scanner;
     const config = { fps: 10, qrbox: safeBarcodeQrBox };
-    Html5Qrcode.getCameras()
-      .then((cameras) => {
-        if (!cameras || cameras.length === 0) {
-          setCameraError('No camera found.');
-          return;
-        }
-        const back = cameras.find((c) => /back|rear|environment/i.test(c.label));
-        const cameraId = back ? back.id : cameras[0].id;
-        return scanner.start(cameraId, config, (decodedText) => lookupBarcodeAndFill(decodedText), () => {});
+
+    startBarcodeScannerWithFallback(
+      scanner,
+      config,
+      (decodedText) => {
+        lookupBarcodeAndFill(decodedText);
+      },
+      () => {}
+    )
+      .then(() => {
+        scannerStartedRef.current = true;
       })
-      .catch((err) => setCameraError(err?.message || 'Camera access failed.'));
+      .catch((err) => {
+        setCameraError(normalizeScannerError(err));
+      });
 
     return () => {
-      if (cameraRef.current) {
-        cameraRef.current.stop().catch(() => {});
-        cameraRef.current = null;
-      }
+      safeStopScanner();
     };
   }, [showBarcode, isOpen]);
 

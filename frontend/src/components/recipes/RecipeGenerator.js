@@ -3,7 +3,7 @@ import { getDaysRemaining, getExpiringItems } from '../../utils/dateUtils';
 import { IconChefHat, IconWarning, IconTimer, IconUsers } from '../Icons';
 import './RecipeGenerator.css';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000';
+import { getApiBaseUrl } from '../../config';
 
 const DIETARY_OPTIONS = ['Any', 'Vegetarian', 'Vegan', 'Gluten-free', 'Dairy-free', 'Nut-free'];
 const CUISINE_OPTIONS = ['Any', 'Italian', 'Asian', 'Mexican', 'Indian', 'Mediterranean', 'British'];
@@ -68,7 +68,7 @@ function RecipeGenerator({ items, authToken, onGenerateRecipe, onUseRecipeIngred
     try {
       let generatedRecipe;
       try {
-        const response = await fetch(`${API_BASE_URL}/recipes/generate`, {
+        const response = await fetch(`${getApiBaseUrl()}/recipes/generate`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(buildBody()),
@@ -129,7 +129,7 @@ function RecipeGenerator({ items, authToken, onGenerateRecipe, onUseRecipeIngred
     if (!recipe?.missingIngredients?.length || !authToken) return;
     setShoppingLoading(true);
     try {
-      await fetch(`${API_BASE_URL}/shopping-list/from-recipe`, {
+      await fetch(`${getApiBaseUrl()}/shopping-list/from-recipe`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` },
         body: JSON.stringify({ missing_ingredients: recipe.missingIngredients }),

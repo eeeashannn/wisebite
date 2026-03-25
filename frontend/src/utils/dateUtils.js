@@ -22,6 +22,15 @@ export const getStatus = (daysRemaining) => {
   }
 };
 
+/** Matches backend _compute_stats: expired (days < 0), expiring (0–3 days), fresh (> 3). */
+export const getItemStatusBucket = (item) => {
+  const days = getDaysRemaining(item?.expiry);
+  if (!Number.isFinite(days)) return null;
+  if (days < 0) return 'expired';
+  if (days <= 3) return 'expiring';
+  return 'fresh';
+};
+
 export const formatDate = (dateString) => {
   const date = new Date(dateString);
   return date.toLocaleDateString('en-US', { 

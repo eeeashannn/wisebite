@@ -3,6 +3,17 @@ import React from 'react';
 const size = (props) => ({ width: props.size || 20, height: props.size || 20 });
 const stroke = (props) => props.stroke || 'currentColor';
 
+export function IconMenu(props) {
+  const s = size(props);
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke={stroke(props)} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...s}>
+      <line x1="4" y1="6" x2="20" y2="6" />
+      <line x1="4" y1="12" x2="20" y2="12" />
+      <line x1="4" y1="18" x2="20" y2="18" />
+    </svg>
+  );
+}
+
 export function IconHome(props) {
   const s = size(props);
   return (
@@ -165,6 +176,16 @@ export function IconUsers(props) {
       <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
       <circle cx="9" cy="7" r="4" />
       <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" />
+    </svg>
+  );
+}
+
+export function IconUser(props) {
+  const s = size(props);
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke={stroke(props)} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...s}>
+      <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
     </svg>
   );
 }

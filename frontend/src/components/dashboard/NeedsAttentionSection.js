@@ -1,23 +1,34 @@
 import React from 'react';
 import PantryItem from '../PantryItem';
-import { getExpiringItems } from '../../utils/dateUtils';
 import './NeedsAttentionSection.css';
 
-function NeedsAttentionSection({ items, onConsumeItem }) {
-  const needsAttentionItems = getExpiringItems(items, 3).slice(0, 6);
+const STATUS_HEADING = {
+  expired: 'Expired items',
+  expiring: 'Expiring soon',
+  fresh: null,
+};
 
-  if (needsAttentionItems.length === 0) {
+function NeedsAttentionSection({ attentionItems, activeStatusFilter = 'all', onConsumeItem }) {
+  if (!attentionItems?.length) {
     return null;
   }
+
+  const scoped =
+    activeStatusFilter !== 'all' ? STATUS_HEADING[activeStatusFilter] : null;
 
   return (
     <div className="needs-attention-section">
       <div className="section-header">
-        <h2 className="section-title">Needs Attention</h2>
-        <span className="attention-count">{needsAttentionItems.length} item(s)</span>
+        <h2 className="section-title">
+          Needs Attention
+          {scoped && (
+            <span className="needs-attention-scope"> — {scoped}</span>
+          )}
+        </h2>
+        <span className="attention-count">{attentionItems.length} item(s)</span>
       </div>
       <div className="items-grid">
-        {needsAttentionItems.map((item) => (
+        {attentionItems.map((item) => (
           <PantryItem
             key={item.id}
             item={item}

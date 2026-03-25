@@ -11,7 +11,17 @@ import AddItemModal from "./components/AddItemModal";
 import AuthPage from "./components/AuthPage";
 import BrandLogo from "./components/BrandLogo";
 import UndoSnackbar from "./components/common/UndoSnackbar";
-import { IconHome, IconCamera, IconChefHat, IconApple, IconBox, IconChartDown, IconUsers } from "./components/Icons";
+import {
+  IconMenu,
+  IconHome,
+  IconCamera,
+  IconChefHat,
+  IconApple,
+  IconBox,
+  IconChartDown,
+  IconUsers,
+  IconUser,
+} from "./components/Icons";
 import "./App.css";
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || "http://127.0.0.1:5000";
@@ -26,6 +36,17 @@ const VIEWS = {
   household: "household",
   profile: "profile",
 };
+
+const MAIN_PAGES = [
+  { view: VIEWS.home, label: "Home", Icon: IconHome },
+  { view: VIEWS.scan, label: "Scan", Icon: IconCamera },
+  { view: VIEWS.recipes, label: "Recipes", Icon: IconChefHat },
+  { view: VIEWS.produce, label: "Produce AI", Icon: IconApple },
+  { view: VIEWS.shopping, label: "Shopping", Icon: IconBox },
+  { view: VIEWS.insights, label: "Insights", Icon: IconChartDown },
+  { view: VIEWS.household, label: "Household", Icon: IconUsers },
+  { view: VIEWS.profile, label: "Profile", Icon: IconUser },
+];
 
 function getStoredAuth() {
   try {
@@ -58,7 +79,9 @@ function App() {
   const [undoToken, setUndoToken] = useState(null);
   const [undoLoading, setUndoLoading] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [isPagesMenuOpen, setIsPagesMenuOpen] = useState(false);
   const profileMenuRef = useRef(null);
+  const pagesMenuRef = useRef(null);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -151,13 +174,16 @@ function App() {
 
   useEffect(() => {
     const handleDocumentClick = (event) => {
-      if (!profileMenuRef.current) return;
-      if (!profileMenuRef.current.contains(event.target)) {
-        setIsProfileMenuOpen(false);
-      }
+      const inProfile = profileMenuRef.current?.contains(event.target);
+      const inPages = pagesMenuRef.current?.contains(event.target);
+      if (!inProfile) setIsProfileMenuOpen(false);
+      if (!inPages) setIsPagesMenuOpen(false);
     };
     const handleEsc = (event) => {
-      if (event.key === "Escape") setIsProfileMenuOpen(false);
+      if (event.key === "Escape") {
+        setIsProfileMenuOpen(false);
+        setIsPagesMenuOpen(false);
+      }
     };
     document.addEventListener("mousedown", handleDocumentClick);
     document.addEventListener("keydown", handleEsc);
@@ -353,6 +379,7 @@ function App() {
   const profilePhotoSrc = profile?.photo_url
     ? (profile.photo_url.startsWith("http") ? profile.photo_url : `${API_BASE_URL}${profile.photo_url}`)
     : "";
+  const currentPage = MAIN_PAGES.find((p) => p.view === activeView) || MAIN_PAGES[0];
 
   if (!auth) {
     return (
@@ -376,92 +403,78 @@ function App() {
           </span>
           <span className="brand-title">WiseBite</span>
         </button>
-        <nav className="nav-tabs" aria-label="Main navigation">
-          <button
-            className={`nav-tab ${activeView === VIEWS.home ? "active" : ""}`}
-            onClick={() => setActiveView(VIEWS.home)}
-          >
-            <span className="nav-tab-icon"><IconHome size={20} /></span>
-            <span>Home</span>
-          </button>
-          <button
-            className={`nav-tab ${activeView === VIEWS.scan ? "active" : ""}`}
-            onClick={() => setActiveView(VIEWS.scan)}
-          >
-            <span className="nav-tab-icon"><IconCamera size={20} /></span>
-            <span>Scan</span>
-          </button>
-          <button
-            className={`nav-tab ${activeView === VIEWS.recipes ? "active" : ""}`}
-            onClick={() => setActiveView(VIEWS.recipes)}
-          >
-            <span className="nav-tab-icon"><IconChefHat size={20} /></span>
-            <span>Recipes</span>
-          </button>
-          <button
-            className={`nav-tab ${activeView === VIEWS.produce ? "active" : ""}`}
-            onClick={() => setActiveView(VIEWS.produce)}
-          >
-            <span className="nav-tab-icon"><IconApple size={20} /></span>
-            <span>Produce AI</span>
-          </button>
-          <button
-            className={`nav-tab ${activeView === VIEWS.shopping ? "active" : ""}`}
-            onClick={() => setActiveView(VIEWS.shopping)}
-          >
-            <span className="nav-tab-icon"><IconBox size={20} /></span>
-            <span>Shopping</span>
-          </button>
-          <button
-            className={`nav-tab ${activeView === VIEWS.insights ? "active" : ""}`}
-            onClick={() => setActiveView(VIEWS.insights)}
-          >
-            <span className="nav-tab-icon"><IconChartDown size={20} /></span>
-            <span>Insights</span>
-          </button>
-          <button
-            className={`nav-tab ${activeView === VIEWS.household ? "active" : ""}`}
-            onClick={() => setActiveView(VIEWS.household)}
-          >
-            <span className="nav-tab-icon"><IconUsers size={20} /></span>
-            <span>Household</span>
-          </button>
+        <nav className="topnav-actions" aria-label="Main navigation">
+          <div className="pages-menu-wrap" ref={pagesMenuRef}>
+            <button
+              type="button"
+              className={`pages-menu-trigger ${isPagesMenuOpen ? "open" : ""}`}
+              onClick={() => {
+                setIsPagesMenuOpen((v) => !v);
+                setIsProfileMenuOpen(false);
+              }}
+              aria-haspopup="menu"
+              aria-expanded={isPagesMenuOpen}
+              aria-controls="pages-menu-dropdown"
+              id="pages-menu-button"
+            >
+              <span className="pages-menu-trigger-icon" aria-hidden>
+                <IconMenu size={20} />
+              </span>
+              <span className="pages-menu-current">{currentPage.label}</span>
+              <span className="pages-menu-chevron" aria-hidden />
+            </button>
+            {isPagesMenuOpen && (
+              <div
+                className="pages-menu-dropdown"
+                id="pages-menu-dropdown"
+                role="menu"
+                aria-labelledby="pages-menu-button"
+              >
+                {MAIN_PAGES.map(({ view, label, Icon }) => (
+                  <button
+                    key={view}
+                    type="button"
+                    role="menuitem"
+                    className={`pages-menu-item ${activeView === view ? "active" : ""}`}
+                    onClick={() => {
+                      setActiveView(view);
+                      setIsPagesMenuOpen(false);
+                    }}
+                  >
+                    <span className="pages-menu-item-icon" aria-hidden>
+                      <Icon size={20} />
+                    </span>
+                    <span>{label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <div className="profile-menu-wrap" ref={profileMenuRef}>
             <button
               type="button"
               className="profile-menu-trigger"
-              onClick={() => setIsProfileMenuOpen((v) => !v)}
+              onClick={() => {
+                setIsProfileMenuOpen((v) => !v);
+                setIsPagesMenuOpen(false);
+              }}
               aria-haspopup="menu"
               aria-expanded={isProfileMenuOpen}
             >
               {profile?.photo_url ? (
                 <img
                   src={profilePhotoSrc}
-                  alt="Profile"
+                  alt=""
                   className="profile-trigger-photo"
                 />
               ) : (
                 <span className="profile-trigger-fallback">{profileInitial}</span>
               )}
-              <span className="profile-trigger-name">{profile?.name || auth?.user?.email || "Profile"}</span>
+              <span className="profile-trigger-name">{profile?.name || auth?.user?.email || "Account"}</span>
             </button>
             {isProfileMenuOpen && (
               <div className="profile-menu-dropdown" role="menu">
-                <button
-                  type="button"
-                  className="profile-menu-item"
-                  onClick={() => {
-                    setActiveView(VIEWS.profile);
-                    setIsProfileMenuOpen(false);
-                  }}
-                >
-                  Profile
-                </button>
-                <button
-                  type="button"
-                  className="profile-menu-item danger"
-                  onClick={handleLogout}
-                >
+                <button type="button" className="profile-menu-item danger" onClick={handleLogout}>
                   Log out
                 </button>
               </div>

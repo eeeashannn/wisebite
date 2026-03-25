@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { IconClose, IconCamera, IconCalendar } from './Icons';
+import { safeBarcodeQrBox } from '../utils/safeBarcodeQrBox';
 import './AddItemModal.css';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000';
@@ -51,8 +52,25 @@ function AddItemModal({ isOpen, onClose, onAddItem, onUpdateItem, initialValues 
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: name === 'quantity' ? parseInt(value) || 1 : value }));
-    if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
+    if (name === 'quantity') {
+      if (value === '') {
+        setFormData((prev) => ({ ...prev, quantity: '' }));
+      } else {
+        const n = Number(value);
+        if (!Number.isNaN(n)) {
+          setFormData((prev) => ({ ...prev, quantity: n }));
+        }
+      }
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+    }
+    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: '' }));
+  };
+
+  const normalizeQuantity = (q) => {
+    if (q === '' || q === null || q === undefined) return 1;
+    const n = Number(q);
+    return Number.isFinite(n) && n > 0 ? n : 1;
   };
 
   const validateForm = () => {
@@ -79,7 +97,7 @@ function AddItemModal({ isOpen, onClose, onAddItem, onUpdateItem, initialValues 
       name: formData.name.trim(),
       category: formData.category,
       expiry: formatDate(formData.expiryDate),
-      quantity: formData.quantity || 1,
+      quantity: normalizeQuantity(formData.quantity),
       unit: formData.unit,
       notes: formData.notes.trim(),
       image_url: formData.image_url || undefined,
@@ -131,7 +149,7 @@ function AddItemModal({ isOpen, onClose, onAddItem, onUpdateItem, initialValues 
     setCameraError(null);
     const scanner = new Html5Qrcode(MODAL_CAMERA_MOUNT_ID);
     cameraRef.current = scanner;
-    const config = { fps: 10, qrbox: { width: 220, height: 120 } };
+    const config = { fps: 10, qrbox: safeBarcodeQrBox };
     Html5Qrcode.getCameras()
       .then((cameras) => {
         if (!cameras || cameras.length === 0) {
@@ -174,11 +192,20 @@ function AddItemModal({ isOpen, onClose, onAddItem, onUpdateItem, initialValues 
 
         {!showBarcode ? (
           <>
-            <div className="add-item-tabs">
-              <button type="button" className="tab-btn active">Manual entry</button>
-              <button type="button" className="tab-btn" onClick={() => setShowBarcode(true)}>
-                <IconCamera size={18} /> Scan barcode
-              </button>
+            <div className="add-item-mode-bar">
+              <div className="add-item-mode-switch" role="tablist" aria-label="How to add item">
+                <button type="button" className="mode-segment active" aria-selected="true">
+                  Manual entry
+                </button>
+                <button
+                  type="button"
+                  className="mode-segment"
+                  aria-selected="false"
+                  onClick={() => setShowBarcode(true)}
+                >
+                  <IconCamera size={18} aria-hidden /> Scan barcode
+                </button>
+              </div>
             </div>
 
             <form onSubmit={handleSubmit} className="add-item-form add-item-form-compact">
@@ -208,7 +235,21 @@ function AddItemModal({ isOpen, onClose, onAddItem, onUpdateItem, initialValues 
               <div className="form-row form-row-2">
                 <div className="form-group">
                   <label htmlFor="quantity">Quantity</label>
-                  <input type="number" id="quantity" name="quantity" value={formData.quantity} onChange={handleChange} min="1" />
+                  <input
+                    type="number"
+                    id="quantity"
+                    name="quantity"
+                    value={formData.quantity === '' ? '' : formData.quantity}
+                    onChange={handleChange}
+                    onBlur={() => {
+                      setFormData((prev) => ({
+                        ...prev,
+                        quantity: normalizeQuantity(prev.quantity),
+                      }));
+                    }}
+                    min="1"
+                    step="any"
+                  />
                 </div>
                 <div className="form-group">
                   <label htmlFor="unit">Unit</label>
@@ -255,7 +296,14 @@ function AddItemModal({ isOpen, onClose, onAddItem, onUpdateItem, initialValues 
           <div className="add-modal-scan">
             <div className="add-modal-scan-header">
               <p className="add-modal-scan-hint">Point your camera at the barcode</p>
-              <button type="button" className="tab-btn" onClick={() => { setShowBarcode(false); setCameraError(null); }}>
+              <button
+                type="button"
+                className="add-modal-back-btn"
+                onClick={() => {
+                  setShowBarcode(false);
+                  setCameraError(null);
+                }}
+              >
                 Back to form
               </button>
             </div>

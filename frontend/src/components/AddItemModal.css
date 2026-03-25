@@ -15,19 +15,23 @@
 .modal-content {
   background: white;
   border-radius: 16px;
+  border-top: 3px solid #27ae60;
   width: 100%;
   max-width: 600px;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  box-shadow:
+    0 25px 50px -12px rgba(0, 0, 0, 0.18),
+    0 12px 24px rgba(0, 0, 0, 0.08);
 }
 
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1.5rem 2rem;
-  border-bottom: 1px solid #e0e0e0;
+  padding: 1.35rem 2rem 1.25rem;
+  background: #f8faf9;
+  border-bottom: none;
 }
 
 .modal-title {
@@ -54,41 +58,81 @@
 }
 
 .modal-close:hover {
-  background: #f5f7fa;
+  background: rgba(255, 255, 255, 0.9);
   color: #2c3e50;
 }
 
-.add-item-tabs {
-  display: flex;
-  gap: 0.5rem;
-  padding: 0 2rem 1rem;
-  border-bottom: 1px solid #e0e0e0;
+.add-item-mode-bar {
+  padding: 0.65rem 2rem 1rem;
+  background: #fff;
+  border-bottom: 1px solid rgba(44, 62, 80, 0.08);
 }
 
-.tab-btn {
+.add-item-mode-switch {
+  display: flex;
+  gap: 0;
+  padding: 4px;
+  background: #e8eeea;
+  border-radius: 10px;
+  width: 100%;
+  min-width: 0;
+}
+
+.mode-segment {
+  flex: 1;
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  background: #f5f7fa;
-  border: 1px solid #e0e0e0;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.55rem 0.65rem;
+  border: none;
   border-radius: 8px;
+  background: transparent;
+  color: #5a6c7d;
+  font-size: 0.9rem;
+  font-weight: 600;
   cursor: pointer;
-  font-size: 0.95rem;
+  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+  font-family: inherit;
+  min-width: 0;
 }
 
-.tab-btn.active {
+.mode-segment:hover:not(.active) {
+  color: #2c3e50;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.mode-segment.active {
   background: #27ae60;
-  color: white;
-  border-color: #27ae60;
+  color: #fff;
+  box-shadow: 0 1px 3px rgba(39, 174, 96, 0.35);
 }
 
-.tab-btn:not(.active):hover {
-  background: #ecf0f1;
-}
-
-.tab-btn svg {
+.mode-segment svg {
   flex-shrink: 0;
+  color: inherit;
+}
+
+.add-modal-back-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 1rem;
+  background: #fff;
+  border: 1px solid #d5ded8;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #2c3e50;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+  font-family: inherit;
+}
+
+.add-modal-back-btn:hover {
+  background: #f8faf9;
+  border-color: #27ae60;
+  color: #1e8449;
 }
 
 .add-item-form {
@@ -214,12 +258,12 @@
   border-radius: 12px;
   overflow: hidden;
   position: relative;
-  min-height: 200px;
+  min-height: min(42vh, 400px);
 }
 
 .add-modal-camera-mount {
   width: 100%;
-  min-height: 200px;
+  min-height: min(40vh, 380px);
 }
 
 .add-modal-camera-mount video {
@@ -284,9 +328,13 @@
   display: flex;
   justify-content: flex-end;
   gap: 1rem;
-  margin-top: 1.25rem;
-  padding-top: 1rem;
-  border-top: 1px solid #e0e0e0;
+  margin-top: 1.5rem;
+  margin-left: -2rem;
+  margin-right: -2rem;
+  margin-bottom: -1.25rem;
+  padding: 1.15rem 2rem 1.35rem;
+  background: #fafbfa;
+  border-radius: 0 0 13px 13px;
 }
 
 .btn-cancel {
@@ -336,6 +384,32 @@
     margin: 1rem;
   }
 
+  .modal-header,
+  .add-item-mode-bar {
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+  }
+
+  .add-item-form {
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+  }
+
+  .form-actions {
+    flex-direction: column-reverse;
+    margin-left: -1.25rem;
+    margin-right: -1.25rem;
+    margin-bottom: -1.25rem;
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+    border-radius: 0 0 12px 12px;
+  }
+
+  .mode-segment {
+    font-size: 0.82rem;
+    padding: 0.5rem 0.4rem;
+  }
+
   .form-row,
   .form-row-2 {
     grid-template-columns: 1fr;
@@ -346,14 +420,15 @@
     grid-column: 1;
   }
 
-  .form-actions {
-    flex-direction: column-reverse;
-  }
-
   .btn-cancel,
   .btn-add {
     width: 100%;
     justify-content: center;
+  }
+
+  .add-modal-scan {
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
   }
 
   .add-modal-scan-header {

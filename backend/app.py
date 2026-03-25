@@ -14,7 +14,16 @@ app = Flask(__name__)
 # Allow frontend origin for CORS; preflight (OPTIONS) must succeed for POST with JSON
 CORS(
     app,
-    resources={r"/*": {"origins": ["http://localhost:3000", "http://127.0.0.1:3000"]}},
+    resources={
+        r"/*": {
+            "origins": [
+                "http://localhost:3000",
+                "http://127.0.0.1:3000",
+                "http://localhost:5173",
+                "http://127.0.0.1:5173",
+            ],
+        }
+    },
     allow_headers=["Content-Type", "Authorization"],
     expose_headers=["Content-Type"],
     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
@@ -23,6 +32,16 @@ CORS(
 
 SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-change-in-production")
 JWT_EXPIRY_DAYS = 7
+
+# Open Food Facts (and some other APIs) return 403 for the default "python-requests/..." User-Agent.
+_HTTP_USER_AGENT = os.environ.get(
+    "WISEBITE_HTTP_USER_AGENT",
+    "WiseBite/1.0 (https://github.com/wisebite; educational pantry app)",
+)
+OUTBOUND_REQUEST_HEADERS = {
+    "User-Agent": _HTTP_USER_AGENT,
+    "Accept": "application/json",
+}
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROFILE_UPLOAD_DIR = os.path.join(BASE_DIR, "uploads", "profile_photos")
 ALLOWED_PROFILE_IMAGE_EXTS = {"jpg", "jpeg", "png", "webp"}
@@ -252,11 +271,21 @@ def _compute_stats(items):
     }
 
 
+_ALLOWED_CORS_ORIGINS = frozenset(
+    {
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    }
+)
+
+
 @app.after_request
 def after_request(response):
     """Ensure CORS headers on every response so preflight (OPTIONS) succeeds."""
     origin = request.origin if request.origin else "*"
-    if origin in ("http://localhost:3000", "http://127.0.0.1:3000"):
+    if origin in _ALLOWED_CORS_ORIGINS:
         response.headers["Access-Control-Allow-Origin"] = origin
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
     response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
@@ -785,13 +814,17 @@ def household_accept():
 
 # ---------- Barcode: FatSecret (optional) + Open Food Facts (fallback) ----------
 def _normalize_barcode_gtin13(barcode):
-    """FatSecret expects GTIN-13: 13 digits. UPC-A is 12 digits -> pad with leading 0."""
+    """FatSecret expects GTIN-13. UPC-A 12 digits -> leading 0; EAN-8 -> left-pad to 13."""
     s = "".join(c for c in str(barcode) if c.isdigit())
+    if len(s) == 8:
+        return s.zfill(13)
     if len(s) == 12:
         return "0" + s
     if len(s) == 13:
         return s
-    return s  # pass through; API may still accept
+    if len(s) == 14:
+        return s[-13:]
+    return s
 
 def _fatsecret_get_token():
     """OAuth2 client_credentials token for FatSecret. Cached in process."""
@@ -809,6 +842,7 @@ def _fatsecret_get_token():
             headers={
                 "Authorization": f"Basic {auth}",
                 "Content-Type": "application/x-www-form-urlencoded",
+                "User-Agent": _HTTP_USER_AGENT,
             },
             data={"grant_type": "client_credentials", "scope": "barcode"},
             timeout=10,
@@ -830,7 +864,10 @@ def _lookup_barcode_fatsecret(barcode):
     try:
         r = requests.get(
             "https://platform.fatsecret.com/rest/food/barcode/find-by-id/v2",
-            headers={"Authorization": f"Bearer {token}"},
+            headers={
+                "Authorization": f"Bearer {token}",
+                **OUTBOUND_REQUEST_HEADERS,
+            },
             params={"barcode": gtin, "format": "json"},
             timeout=8,
         )
@@ -855,33 +892,64 @@ def _lookup_barcode_fatsecret(barcode):
     except Exception:
         return None
 
+def _off_category_from_product(p):
+    """Map OFF categories / tags to our pantry category."""
+    cat_map = {
+        "dairy": "Dairy",
+        "meat": "Meat",
+        "vegetable": "Vegetables",
+        "fruit": "Fruits",
+        "bakery": "Bakery",
+        "beverage": "Beverages",
+        "snack": "Snacks",
+        "frozen": "Frozen",
+        "pantry": "Pantry",
+    }
+    tags = p.get("categories_tags") or []
+    blob = " ".join(tags) if isinstance(tags, list) else str(tags)
+    blob += " " + (p.get("categories") or "")
+    low = blob.lower()
+    for key, val in cat_map.items():
+        if key in low:
+            return val
+    return "Other"
+
+
 def _lookup_barcode_openfoodfacts(barcode):
-    """Open Food Facts barcode lookup. Returns our shape or None."""
+    """Open Food Facts barcode lookup (API v2). Requires a non-bot User-Agent."""
+    code = "".join(c for c in str(barcode) if c.isdigit())
+    if not code:
+        return None
+    fields = (
+        "product_name,product_name_en,brands,categories,categories_tags,"
+        "image_url,image_front_url,quantity,code"
+    )
     try:
-        url = f"https://world.openfoodfacts.org/api/v0/product/{barcode}.json"
-        r = requests.get(url, timeout=5)
+        url = f"https://world.openfoodfacts.org/api/v2/product/{code}"
+        r = requests.get(
+            url,
+            params={"fields": fields},
+            headers=OUTBOUND_REQUEST_HEADERS,
+            timeout=12,
+        )
         r.raise_for_status()
         data = r.json()
         if data.get("status") != 1 or not data.get("product"):
             return None
         p = data["product"]
-        product_name = p.get("product_name") or p.get("product_name_en") or "Unknown"
-        categories = p.get("categories", "") or p.get("categories_tags", [])
-        category_str = categories.split(",")[0].strip() if isinstance(categories, str) else (categories[0] if categories else "Other")
-        cat_map = {"Dairy": "Dairy", "Meat": "Meat", "Vegetables": "Vegetables", "Fruits": "Fruits",
-                   "Bakery": "Bakery", "Beverages": "Beverages", "Snacks": "Snacks", "Frozen": "Frozen"}
-        category = "Other"
-        for k, v in cat_map.items():
-            if k.lower() in category_str.lower():
-                category = v
-                break
+        product_name = (
+            p.get("product_name")
+            or p.get("product_name_en")
+            or "Unknown"
+        )
+        category = _off_category_from_product(p)
         return {
             "found": True,
             "name": product_name,
             "category": category,
             "image_url": p.get("image_url") or p.get("image_front_url"),
-            "brands": p.get("brands", ""),
-            "quantity": p.get("quantity", ""),
+            "brands": p.get("brands", "") or "",
+            "quantity": p.get("quantity", "") or "",
         }
     except Exception:
         return None

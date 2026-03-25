@@ -5,16 +5,35 @@
 }
 
 .stat-card {
-  background: white;
+  border: 2px solid transparent;
   border-radius: 12px;
   padding: 1.5rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
   text-align: center;
-  transition: box-shadow 0.2s;
+  transition: background 0.2s, box-shadow 0.2s, border-color 0.2s, transform 0.15s;
+  cursor: pointer;
+  font: inherit;
+  width: 100%;
+  margin: 0;
+  color: #fff;
 }
 
 .stat-card:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+}
+
+.stat-card:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px #fff, 0 0 0 6px rgba(44, 62, 80, 0.45);
+}
+
+.stat-card.active {
+  border-color: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.4) inset, 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+.stat-card:active {
+  transform: scale(0.99);
 }
 
 .stat-icon {
@@ -32,26 +51,50 @@
   font-size: 2.25rem;
   font-weight: 700;
   margin: 0.25rem 0;
+  color: #fff;
 }
 
 .stat-label {
   font-size: 0.9rem;
-  color: #7f8c8d;
-  font-weight: 500;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
 }
 
 /* Total Items - blue */
-.stat-card.total .stat-icon { filter: none; }
-.stat-card.total .stat-value { color: #3498db; }
+.stat-card.total {
+  background: #3498db;
+}
+
+.stat-card.total:hover {
+  background: #2e86c1;
+}
 
 /* Fresh - green */
-.stat-card.fresh .stat-value { color: #27ae60; }
+.stat-card.fresh {
+  background: #27ae60;
+}
+
+.stat-card.fresh:hover {
+  background: #229954;
+}
 
 /* Expiring Soon - orange */
-.stat-card.expiring .stat-value { color: #f39c12; }
+.stat-card.expiring {
+  background: #e67e22;
+}
+
+.stat-card.expiring:hover {
+  background: #d35400;
+}
 
 /* Expired - red */
-.stat-card.expired .stat-value { color: #e74c3c; }
+.stat-card.expired {
+  background: #e74c3c;
+}
+
+.stat-card.expired:hover {
+  background: #c0392b;
+}
 
 @media (max-width: 768px) {
   .stats-grid {

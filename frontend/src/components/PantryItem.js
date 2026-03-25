@@ -1,13 +1,29 @@
 import React from 'react';
-import { getDaysRemaining } from '../utils/dateUtils';
+import { getDaysRemaining, getItemStatusBucket, formatDate } from '../utils/dateUtils';
 import { getItemDisplay } from '../utils/itemImage';
-import { formatDate } from '../utils/dateUtils';
 import { IconEdit, IconTrash } from './Icons';
 import './PantryItem.css';
 
 function PantryItem({ item, onDelete, onEdit, onConsume, showActions }) {
   const display = getItemDisplay(item);
   const daysRemaining = getDaysRemaining(item.expiry);
+  const statusBucket = getItemStatusBucket(item);
+  const statusClass =
+    statusBucket === 'expired'
+      ? 'pantry-card--expired'
+      : statusBucket === 'expiring'
+        ? 'pantry-card--expiring'
+        : statusBucket === 'fresh'
+          ? 'pantry-card--fresh'
+          : 'pantry-card--unknown';
+  const expiryTone =
+    statusBucket === 'expired'
+      ? 'expired'
+      : statusBucket === 'expiring'
+        ? 'expiring-soon'
+        : statusBucket === 'fresh'
+          ? 'fresh'
+          : 'unknown';
   const quantity = item.quantity || 1;
   const unit = item.unit || 'units';
   const category = item.category || 'Pantry';
@@ -21,7 +37,7 @@ function PantryItem({ item, onDelete, onEdit, onConsume, showActions }) {
         : `${daysRemaining} days left`;
 
   return (
-    <div className="pantry-card">
+    <div className={`pantry-card ${statusClass}`}>
       {showActions && (
         <div className="pantry-card-actions">
           <button
@@ -57,8 +73,12 @@ function PantryItem({ item, onDelete, onEdit, onConsume, showActions }) {
         {quantity} {quantity === 1 ? (unit === 'Pieces' ? 'piece' : unit.toLowerCase()) : unit.toLowerCase()}
       </p>
       <p className="pantry-card-added">{addedDate ? `Added ${formatDate(addedDate)}` : 'Added -'}</p>
-      <p className={`pantry-card-expiry ${daysRemaining <= 0 ? 'expired' : 'fresh'}`}>
-        <span className="expiry-dot" data-expired={daysRemaining <= 0} />
+      <p className={`pantry-card-expiry ${expiryTone}`}>
+        <span
+          className="expiry-dot"
+          data-status={statusBucket || 'unknown'}
+          aria-hidden
+        />
         {expiryLabel}
       </p>
       {onConsume && (

@@ -3,8 +3,30 @@
   border-radius: 12px;
   padding: 1.25rem;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(44, 62, 80, 0.08);
+  border-left-width: 4px;
+  border-left-color: #bdc3c7;
   position: relative;
-  transition: box-shadow 0.2s;
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+
+.pantry-card--expired {
+  border-left-color: #e74c3c;
+  background: linear-gradient(105deg, rgba(231, 76, 60, 0.07) 0%, #fff 42%);
+}
+
+.pantry-card--expiring {
+  border-left-color: #e67e22;
+  background: linear-gradient(105deg, rgba(230, 126, 34, 0.09) 0%, #fff 42%);
+}
+
+.pantry-card--fresh {
+  border-left-color: #27ae60;
+  background: linear-gradient(105deg, rgba(39, 174, 96, 0.07) 0%, #fff 42%);
+}
+
+.pantry-card--unknown {
+  border-left-color: #95a5a6;
 }
 
 .pantry-card:hover {
@@ -63,12 +85,20 @@
   vertical-align: middle;
 }
 
-.expiry-dot[data-expired="true"] {
+.expiry-dot[data-status="expired"] {
   background: #e74c3c;
 }
 
-.expiry-dot[data-expired="false"] {
+.expiry-dot[data-status="expiring"] {
+  background: #e67e22;
+}
+
+.expiry-dot[data-status="fresh"] {
   background: #27ae60;
+}
+
+.expiry-dot[data-status="unknown"] {
+  background: #95a5a6;
 }
 
 .pantry-card-img {
@@ -103,11 +133,19 @@
 }
 
 .pantry-card-expiry.expired {
-  color: #e74c3c;
+  color: #c0392b;
+}
+
+.pantry-card-expiry.expiring-soon {
+  color: #d35400;
 }
 
 .pantry-card-expiry.fresh {
-  color: #27ae60;
+  color: #1e8449;
+}
+
+.pantry-card-expiry.unknown {
+  color: #7f8c8d;
 }
 
 .consume-btn {

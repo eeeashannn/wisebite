@@ -16,6 +16,12 @@
   font-weight: 700;
 }
 
+.needs-attention-scope {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #7f8c8d;
+}
+
 .view-all-link {
   background: none;
   border: none;

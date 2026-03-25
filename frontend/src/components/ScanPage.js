@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { IconCamera } from './Icons';
 import AddItemModal from './AddItemModal';
+import { safeBarcodeQrBox } from '../utils/safeBarcodeQrBox';
 import './ScanPage.css';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000';
@@ -91,7 +92,7 @@ function ScanPage({ items, onAddItemClick, onAddItem }) {
     const scanner = new Html5Qrcode(SCAN_MOUNT_ID);
     html5QrRef.current = scanner;
 
-    const config = { fps: 10, qrbox: { width: 260, height: 160 } };
+    const config = { fps: 10, qrbox: safeBarcodeQrBox };
 
     Html5Qrcode.getCameras()
       .then((cameras) => {

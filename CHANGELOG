@@ -24,3 +24,18 @@ Mar 4, 2026 — Major app feature release:
                 Added user-specific inventory management
                 Improved Add Item modal (optional fields, barcode scan, editing)
                 Added backend support for item updates  
+
+Mar 14, 2026 - Shopping List implemented
+               Reminders implemented
+
+Mar 17, 2026 - Household sharing feature implemented
+                 Profile UI
+              
+Mar 20, 2026 - Enhance pantry item management with improved status categorization, visual indicators for item freshness, and updated styles for better user experience. 
+
+Mar 25, 2026 - Implement status filtering in the HomePage and NeedsAttentionSection components, and refine modal layouts for item addition and scanning.
+
+
+
+
+

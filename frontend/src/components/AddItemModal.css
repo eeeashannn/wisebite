@@ -9,11 +9,7 @@
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  padding: max(1rem, env(safe-area-inset-top, 0px))
-    max(1rem, env(safe-area-inset-right, 0px))
-    max(1rem, env(safe-area-inset-bottom, 0px))
-    max(1rem, env(safe-area-inset-left, 0px));
-  box-sizing: border-box;
+  padding: 1rem;
 }
 
 .modal-content {
@@ -22,9 +18,8 @@
   border-top: 3px solid #27ae60;
   width: 100%;
   max-width: 600px;
-  max-height: min(90vh, calc(100dvh - 2rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)));
+  max-height: 90vh;
   overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
   box-shadow:
     0 25px 50px -12px rgba(0, 0, 0, 0.18),
     0 12px 24px rgba(0, 0, 0, 0.08);
@@ -53,16 +48,13 @@
   color: #7f8c8d;
   cursor: pointer;
   padding: 0;
-  min-width: 44px;
-  min-height: 44px;
-  width: 44px;
-  height: 44px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 8px;
   transition: all 0.2s;
-  box-sizing: border-box;
 }
 
 .modal-close:hover {

@@ -15,10 +15,7 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "start:https": "HTTPS=true react-scripts start",
     "build": "react-scripts build",
-    "build:pages": "sh -c ': \"${REACT_APP_API_URL:?Set REACT_APP_API_URL to your HTTPS tunnel URL}\"; CI= react-scripts build'",
-    "deploy:pages": "sh -c ': \"${CF_PAGES_PROJECT:?Set CF_PAGES_PROJECT to your Cloudflare Pages project}\"; npx wrangler pages deploy build --project-name \"$CF_PAGES_PROJECT\"'",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },

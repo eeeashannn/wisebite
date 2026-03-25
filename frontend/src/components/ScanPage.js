@@ -3,16 +3,9 @@ import { Html5Qrcode } from 'html5-qrcode';
 import { IconCamera } from './Icons';
 import AddItemModal from './AddItemModal';
 import { safeBarcodeQrBox } from '../utils/safeBarcodeQrBox';
-import {
-  CAMERA_HTTPS_MESSAGE,
-  clearHtml5ScannerMount,
-  isCameraSecureContext,
-  normalizeScannerError,
-  startBarcodeScannerWithFallback,
-} from '../utils/barcodeCamera';
 import './ScanPage.css';
 
-import { getApiBaseUrl } from '../config';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000';
 const SCAN_MOUNT_ID = 'scan-camera-mount';
 
 function ScanPage({ items, onAddItemClick, onAddItem }) {
@@ -24,29 +17,6 @@ function ScanPage({ items, onAddItemClick, onAddItem }) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [prefill, setPrefill] = useState(null);
   const html5QrRef = useRef(null);
-  const scannerStartedRef = useRef(false);
-
-  const safeStopScanner = useCallback(() => {
-    const scanner = html5QrRef.current;
-    if (!scanner) {
-      scannerStartedRef.current = false;
-      return;
-    }
-    const done = () => {
-      clearHtml5ScannerMount(scanner);
-      html5QrRef.current = null;
-      scannerStartedRef.current = false;
-    };
-    if (!scannerStartedRef.current) {
-      done();
-      return;
-    }
-    try {
-      Promise.resolve(scanner.stop()).then(done).catch(done);
-    } catch {
-      done();
-    }
-  }, []);
 
   const handleLookup = async (e) => {
     e?.preventDefault();
@@ -58,7 +28,7 @@ function ScanPage({ items, onAddItemClick, onAddItem }) {
     setLookupError(null);
     setLookupLoading(true);
     try {
-      const res = await fetch(`${getApiBaseUrl()}/barcode/${encodeURIComponent(code)}`);
+      const res = await fetch(`${API_BASE_URL}/barcode/${encodeURIComponent(code)}`);
       const data = await res.json();
       if (data.found) {
         setPrefill({
@@ -93,7 +63,7 @@ function ScanPage({ items, onAddItemClick, onAddItem }) {
     setLookupError(null);
     setLookupLoading(true);
     try {
-      const res = await fetch(`${getApiBaseUrl()}/barcode/${encodeURIComponent(trimmed)}`);
+      const res = await fetch(`${API_BASE_URL}/barcode/${encodeURIComponent(trimmed)}`);
       const data = await res.json();
       if (data.found) {
         setPrefill({
@@ -119,37 +89,35 @@ function ScanPage({ items, onAddItemClick, onAddItem }) {
   useEffect(() => {
     if (!cameraActive) return;
     setCameraError(null);
-    scannerStartedRef.current = false;
-
-    if (!isCameraSecureContext()) {
-      setCameraError(CAMERA_HTTPS_MESSAGE);
-      html5QrRef.current = null;
-      return undefined;
-    }
-
     const scanner = new Html5Qrcode(SCAN_MOUNT_ID);
     html5QrRef.current = scanner;
+
     const config = { fps: 10, qrbox: safeBarcodeQrBox };
 
-    startBarcodeScannerWithFallback(
-      scanner,
-      config,
-      (decodedText) => {
-        lookupAndOpenModal(decodedText);
-      },
-      () => {}
-    )
-      .then(() => {
-        scannerStartedRef.current = true;
+    Html5Qrcode.getCameras()
+      .then((cameras) => {
+        if (!cameras || cameras.length === 0) {
+          setCameraError('No camera found.');
+          return;
+        }
+        const back = cameras.find((c) => /back|rear|environment/i.test(c.label));
+        const cameraId = back ? back.id : cameras[0].id;
+        return scanner.start(cameraId, config, (decodedText) => {
+          lookupAndOpenModal(decodedText);
+        }, () => {});
       })
+      .then(() => {})
       .catch((err) => {
-        setCameraError(normalizeScannerError(err));
+        setCameraError(err?.message || 'Camera access failed. Use manual entry below.');
       });
 
     return () => {
-      safeStopScanner();
+      if (html5QrRef.current) {
+        html5QrRef.current.stop().catch(() => {});
+        html5QrRef.current = null;
+      }
     };
-  }, [cameraActive, lookupAndOpenModal, safeStopScanner]);
+  }, [cameraActive, lookupAndOpenModal]);
 
   return (
     <div className="scan-page">

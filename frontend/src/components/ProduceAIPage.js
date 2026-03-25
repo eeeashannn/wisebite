@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { IconWarning, IconCamera, IconUpload } from './Icons';
 import './ProduceAIPage.css';
 
-import { getApiBaseUrl } from '../config';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000';
 const DISCLAIMER_TITLE = 'AI-Generated Estimate';
 const DISCLAIMER_TEXT = 'This analysis is provided by AI and may not be 100% accurate. Always use your own judgment when assessing food freshness.';
 
@@ -51,7 +51,7 @@ function ProduceAIPage() {
       const reader = new FileReader();
       reader.onload = async () => {
         const base64 = reader.result?.split(',')[1];
-        const res = await fetch(`${getApiBaseUrl()}/produce/scan`, {
+        const res = await fetch(`${API_BASE_URL}/produce/scan`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ image_base64: base64 }),

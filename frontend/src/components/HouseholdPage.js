@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import "./HouseholdPage.css";
 
-import { getApiBaseUrl } from "../config";
+const API_BASE_URL = process.env.REACT_APP_API_URL || "http://127.0.0.1:5000";
 
 function HouseholdPage({ authToken, household, onRefresh, onSharingModeChanged }) {
   const [name, setName] = useState("");
@@ -15,7 +15,7 @@ function HouseholdPage({ authToken, household, onRefresh, onSharingModeChanged }
     const loadSharing = async () => {
       if (!authToken) return;
       try {
-        const res = await fetch(`${getApiBaseUrl()}/household/sharing`, { headers: { Authorization: `Bearer ${authToken}` } });
+        const res = await fetch(`${API_BASE_URL}/household/sharing`, { headers: { Authorization: `Bearer ${authToken}` } });
         if (!res.ok) return;
         const data = await res.json();
         setSharingEnabled(!!data.enabled);
@@ -27,7 +27,7 @@ function HouseholdPage({ authToken, household, onRefresh, onSharingModeChanged }
   const createHousehold = async () => {
     setLoading(true);
     try {
-      await fetch(`${getApiBaseUrl()}/household`, {
+      await fetch(`${API_BASE_URL}/household`, {
         method: "POST",
         headers,
         body: JSON.stringify({ name: name.trim() || "My Household" }),
@@ -42,7 +42,7 @@ function HouseholdPage({ authToken, household, onRefresh, onSharingModeChanged }
   const generateInvite = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${getApiBaseUrl()}/household/invite`, { method: "POST", headers });
+      const res = await fetch(`${API_BASE_URL}/household/invite`, { method: "POST", headers });
       const data = await res.json();
       setInviteCode(data.invite_code || "");
     } finally {
@@ -54,7 +54,7 @@ function HouseholdPage({ authToken, household, onRefresh, onSharingModeChanged }
     if (!inviteCodeInput.trim()) return;
     setLoading(true);
     try {
-      await fetch(`${getApiBaseUrl()}/household/accept`, {
+      await fetch(`${API_BASE_URL}/household/accept`, {
         method: "POST",
         headers,
         body: JSON.stringify({ invite_code: inviteCodeInput.trim() }),
@@ -69,7 +69,7 @@ function HouseholdPage({ authToken, household, onRefresh, onSharingModeChanged }
   const updateSharingMode = async (enabled) => {
     setLoading(true);
     try {
-      const res = await fetch(`${getApiBaseUrl()}/household/sharing`, {
+      const res = await fetch(`${API_BASE_URL}/household/sharing`, {
         method: "PUT",
         headers,
         body: JSON.stringify({ enabled }),

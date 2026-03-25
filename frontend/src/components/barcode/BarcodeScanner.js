@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import './BarcodeScanner.css';
 
-import { getApiBaseUrl } from '../../config';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000';
 
 function BarcodeScanner({ onProductFound, onClose }) {
   const [barcode, setBarcode] = useState('');
@@ -18,7 +18,7 @@ function BarcodeScanner({ onProductFound, onClose }) {
     setError(null);
     setLoading(true);
     try {
-      const res = await fetch(`${getApiBaseUrl()}/barcode/${encodeURIComponent(code)}`);
+      const res = await fetch(`${API_BASE_URL}/barcode/${encodeURIComponent(code)}`);
       const data = await res.json();
       if (data.found) {
         onProductFound({

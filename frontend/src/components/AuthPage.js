@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import BrandLogo from "./BrandLogo";
 import "./AuthPage.css";
 
-import { getApiBaseUrl } from "../config";
+const API_BASE_URL = process.env.REACT_APP_API_URL || "http://127.0.0.1:5000";
 
 const MODES = { signIn: "signIn", signUp: "signUp" };
 
@@ -33,8 +33,7 @@ function AuthPage({ onAuthSuccess }) {
     setLoading(true);
     try {
       const endpoint = mode === MODES.signUp ? "/auth/signup" : "/auth/login";
-      const base = getApiBaseUrl();
-      const res = await fetch(`${base}${endpoint}`, {
+      const res = await fetch(`${API_BASE_URL}${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: trimmedEmail, password }),
@@ -54,12 +53,7 @@ function AuthPage({ onAuthSuccess }) {
         setError("Invalid response from server.");
       }
     } catch (err) {
-      const base = getApiBaseUrl();
-      const hint =
-        process.env.NODE_ENV === "development"
-          ? ` Tried ${base}. On your Mac run: python app.py (from backend/). iPhone: Settings → Privacy & Security → Local Network → enable for Safari if prompted.`
-          : "";
-      setError(`Could not reach server. Check backend is running.${hint}`);
+      setError("Could not reach server. Check backend is running.");
     } finally {
       setLoading(false);
     }

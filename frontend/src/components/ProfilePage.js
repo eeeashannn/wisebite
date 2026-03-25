@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import "./ProfilePage.css";
 
-import { getApiBaseUrl } from "../config";
+const API_BASE_URL = process.env.REACT_APP_API_URL || "http://127.0.0.1:5000";
 
 function ProfilePage({ authToken, profile, onProfileUpdated }) {
   const [name, setName] = useState(profile?.name || "");
@@ -13,7 +13,7 @@ function ProfilePage({ authToken, profile, onProfileUpdated }) {
   const photoSrc = useMemo(() => {
     if (!profile?.photo_url) return "";
     if (profile.photo_url.startsWith("http")) return profile.photo_url;
-    return `${getApiBaseUrl()}${profile.photo_url}`;
+    return `${API_BASE_URL}${profile.photo_url}`;
   }, [profile]);
 
   const saveName = async () => {
@@ -21,7 +21,7 @@ function ProfilePage({ authToken, profile, onProfileUpdated }) {
     setError("");
     setSuccess("");
     try {
-      const res = await fetch(`${getApiBaseUrl()}/profile`, {
+      const res = await fetch(`${API_BASE_URL}/profile`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -48,7 +48,7 @@ function ProfilePage({ authToken, profile, onProfileUpdated }) {
     try {
       const form = new FormData();
       form.append("photo", file);
-      const res = await fetch(`${getApiBaseUrl()}/profile/photo`, {
+      const res = await fetch(`${API_BASE_URL}/profile/photo`, {
         method: "POST",
         headers: { Authorization: `Bearer ${authToken}` },
         body: form,

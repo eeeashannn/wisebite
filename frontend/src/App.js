@@ -23,7 +23,8 @@ import {
   IconUser,
 } from "./components/Icons";
 import "./App.css";
-import { getApiBaseUrl } from "./config";
+
+const API_BASE_URL = process.env.REACT_APP_API_URL || "http://127.0.0.1:5000";
 
 const VIEWS = {
   home: "home",
@@ -46,20 +47,6 @@ const MAIN_PAGES = [
   { view: VIEWS.household, label: "Household", Icon: IconUsers },
   { view: VIEWS.profile, label: "Profile", Icon: IconUser },
 ];
-
-const MOBILE_QUICK_PAGES = [
-  { view: VIEWS.home, label: "Home", Icon: IconHome },
-  { view: VIEWS.scan, label: "Scan", Icon: IconCamera },
-  { view: VIEWS.shopping, label: "List", Icon: IconBox },
-  { view: VIEWS.recipes, label: "Recipes", Icon: IconChefHat },
-];
-
-const MOBILE_SECONDARY_VIEWS = new Set([
-  VIEWS.produce,
-  VIEWS.insights,
-  VIEWS.household,
-  VIEWS.profile,
-]);
 
 function getStoredAuth() {
   try {
@@ -112,8 +99,8 @@ function App() {
     setError(null);
     try {
       const [itemsRes, statsRes] = await Promise.all([
-        fetch(`${getApiBaseUrl()}/items`, { headers: authHeaders() }),
-        fetch(`${getApiBaseUrl()}/stats`, { headers: authHeaders() }),
+        fetch(`${API_BASE_URL}/items`, { headers: authHeaders() }),
+        fetch(`${API_BASE_URL}/stats`, { headers: authHeaders() }),
       ]);
       if (itemsRes.status === 401 || statsRes.status === 401) {
         handleLogout();
@@ -140,7 +127,7 @@ function App() {
   };
 
   const fetchProfile = async () => {
-    const res = await fetch(`${getApiBaseUrl()}/profile`, { headers: authHeaders() });
+    const res = await fetch(`${API_BASE_URL}/profile`, { headers: authHeaders() });
     if (res.ok) {
       const data = await res.json();
       setProfile(data);
@@ -149,7 +136,7 @@ function App() {
   };
 
   const fetchReminders = async () => {
-    const res = await fetch(`${getApiBaseUrl()}/reminders`, { headers: authHeaders() });
+    const res = await fetch(`${API_BASE_URL}/reminders`, { headers: authHeaders() });
     if (res.ok) {
       const data = await res.json();
       setReminders({ expired: data.expired || [], today: data.today || [], soon: data.soon || [] });
@@ -157,26 +144,26 @@ function App() {
   };
 
   const fetchActivity = async () => {
-    const res = await fetch(`${getApiBaseUrl()}/activity`, { headers: authHeaders() });
+    const res = await fetch(`${API_BASE_URL}/activity`, { headers: authHeaders() });
     if (res.ok) setActivityEvents(await res.json());
   };
 
   const fetchShopping = async () => {
     const [itemsRes, sugRes] = await Promise.all([
-      fetch(`${getApiBaseUrl()}/shopping-list`, { headers: authHeaders() }),
-      fetch(`${getApiBaseUrl()}/shopping-list/suggestions`, { headers: authHeaders() }),
+      fetch(`${API_BASE_URL}/shopping-list`, { headers: authHeaders() }),
+      fetch(`${API_BASE_URL}/shopping-list/suggestions`, { headers: authHeaders() }),
     ]);
     if (itemsRes.ok) setShoppingItems(await itemsRes.json());
     if (sugRes.ok) setShoppingSuggestions(await sugRes.json());
   };
 
   const fetchInsights = async () => {
-    const res = await fetch(`${getApiBaseUrl()}/insights/weekly`, { headers: authHeaders() });
+    const res = await fetch(`${API_BASE_URL}/insights/weekly`, { headers: authHeaders() });
     if (res.ok) setInsights(await res.json());
   };
 
   const fetchHousehold = async () => {
-    const res = await fetch(`${getApiBaseUrl()}/household`, { headers: authHeaders() });
+    const res = await fetch(`${API_BASE_URL}/household`, { headers: authHeaders() });
     if (res.ok) setHousehold(await res.json());
   };
 
@@ -188,9 +175,7 @@ function App() {
   useEffect(() => {
     const handleDocumentClick = (event) => {
       const inProfile = profileMenuRef.current?.contains(event.target);
-      const inPages =
-        pagesMenuRef.current?.contains(event.target) ||
-        Boolean(event.target.closest?.(".mobile-bottom-nav-item--more"));
+      const inPages = pagesMenuRef.current?.contains(event.target);
       if (!inProfile) setIsProfileMenuOpen(false);
       if (!inPages) setIsPagesMenuOpen(false);
     };
@@ -210,7 +195,7 @@ function App() {
 
   const handleDeleteItem = async (itemId) => {
     try {
-      const res = await fetch(`${getApiBaseUrl()}/items/${itemId}`, {
+      const res = await fetch(`${API_BASE_URL}/items/${itemId}`, {
         method: "DELETE",
         headers: authHeaders(),
       });
@@ -231,7 +216,7 @@ function App() {
 
   const handleAddItem = async (newItem) => {
     try {
-      const res = await fetch(`${getApiBaseUrl()}/items`, {
+      const res = await fetch(`${API_BASE_URL}/items`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({
@@ -262,7 +247,7 @@ function App() {
   const handleUpdateItem = async (updatedItem) => {
     if (!updatedItem?.id) return;
     try {
-      const res = await fetch(`${getApiBaseUrl()}/items/${updatedItem.id}`, {
+      const res = await fetch(`${API_BASE_URL}/items/${updatedItem.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({
@@ -294,13 +279,13 @@ function App() {
   const upsertPantryItem = async (existingItem, nextQuantity) => {
     if (!existingItem?.id) return;
     if (nextQuantity <= 0) {
-      await fetch(`${getApiBaseUrl()}/items/${existingItem.id}`, {
+      await fetch(`${API_BASE_URL}/items/${existingItem.id}`, {
         method: "DELETE",
         headers: authHeaders(),
       });
       return;
     }
-    await fetch(`${getApiBaseUrl()}/items/${existingItem.id}`, {
+    await fetch(`${API_BASE_URL}/items/${existingItem.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json", ...authHeaders() },
       body: JSON.stringify({
@@ -319,7 +304,7 @@ function App() {
 
   const handleConsumeItem = async (itemId, amount = 1) => {
     try {
-      const res = await fetch(`${getApiBaseUrl()}/items/${itemId}/consume`, {
+      const res = await fetch(`${API_BASE_URL}/items/${itemId}/consume`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({ amount }),
@@ -359,7 +344,7 @@ function App() {
     if (!undoToken) return;
     setUndoLoading(true);
     try {
-      await fetch(`${getApiBaseUrl()}/actions/undo`, {
+      await fetch(`${API_BASE_URL}/actions/undo`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({ undo_token: undoToken }),
@@ -392,7 +377,7 @@ function App() {
   const profileInitial =
     (profile?.name || profile?.email || auth?.user?.email || "U").trim().charAt(0).toUpperCase();
   const profilePhotoSrc = profile?.photo_url
-    ? (profile.photo_url.startsWith("http") ? profile.photo_url : `${getApiBaseUrl()}${profile.photo_url}`)
+    ? (profile.photo_url.startsWith("http") ? profile.photo_url : `${API_BASE_URL}${profile.photo_url}`)
     : "";
   const currentPage = MAIN_PAGES.find((p) => p.view === activeView) || MAIN_PAGES[0];
 
@@ -561,42 +546,6 @@ function App() {
         onUndo={handleUndo}
         onClose={() => setUndoToken(null)}
       />
-
-      <nav className="mobile-bottom-nav" aria-label="Quick navigation">
-        {MOBILE_QUICK_PAGES.map(({ view, label, Icon }) => (
-          <button
-            key={view}
-            type="button"
-            className={`mobile-bottom-nav-item ${activeView === view ? "active" : ""}`}
-            onClick={() => {
-              setActiveView(view);
-              setIsPagesMenuOpen(false);
-            }}
-          >
-            <span className="mobile-bottom-nav-icon" aria-hidden>
-              <Icon size={22} />
-            </span>
-            <span>{label}</span>
-          </button>
-        ))}
-        <button
-          type="button"
-          className={`mobile-bottom-nav-item mobile-bottom-nav-item--more ${
-            MOBILE_SECONDARY_VIEWS.has(activeView) ? "active" : ""
-          }`}
-          aria-label="More pages"
-          aria-expanded={isPagesMenuOpen}
-          onClick={() => {
-            setIsPagesMenuOpen((v) => !v);
-            setIsProfileMenuOpen(false);
-          }}
-        >
-          <span className="mobile-bottom-nav-icon" aria-hidden>
-            <IconMenu size={22} />
-          </span>
-          <span>More</span>
-        </button>
-      </nav>
     </div>
   );
 }

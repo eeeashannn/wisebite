@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import ShoppingListItem from "./shopping/ShoppingListItem";
 import "./ShoppingListPage.css";
 
-import { getApiBaseUrl } from "../config";
+const API_BASE_URL = process.env.REACT_APP_API_URL || "http://127.0.0.1:5000";
 
 function ShoppingListPage({ authToken, shoppingItems, suggestions, onRefresh }) {
   const [newItem, setNewItem] = useState("");
@@ -16,7 +16,7 @@ function ShoppingListPage({ authToken, shoppingItems, suggestions, onRefresh }) 
     if (!name.trim()) return;
     setLoading(true);
     try {
-      await fetch(`${getApiBaseUrl()}/shopping-list`, {
+      await fetch(`${API_BASE_URL}/shopping-list`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeaders },
         body: JSON.stringify({ name: name.trim(), source }),
@@ -31,7 +31,7 @@ function ShoppingListPage({ authToken, shoppingItems, suggestions, onRefresh }) 
   const removeItem = async (id) => {
     setLoading(true);
     try {
-      await fetch(`${getApiBaseUrl()}/shopping-list?id=${encodeURIComponent(id)}`, {
+      await fetch(`${API_BASE_URL}/shopping-list?id=${encodeURIComponent(id)}`, {
         method: "DELETE",
         headers: authHeaders,
       });

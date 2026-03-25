@@ -1078,5 +1078,30 @@ def produce_scan():
     })
 
 
+@app.after_request
+def _echo_origin_cors_headers(resp):
+    """
+    Dev-friendly CORS fallback: if preflight responses lose `Access-Control-Allow-Origin`,
+    echo back the request Origin so the browser can accept the response.
+    """
+    origin = request.headers.get("Origin")
+    if origin and not resp.headers.get("Access-Control-Allow-Origin"):
+        resp.headers["Access-Control-Allow-Origin"] = origin
+        resp.headers["Vary"] = "Origin"
+
+    if request.method == "OPTIONS":
+        resp.headers.setdefault(
+            "Access-Control-Allow-Methods",
+            "GET, POST, PUT, DELETE, OPTIONS",
+        )
+        resp.headers.setdefault(
+            "Access-Control-Allow-Headers",
+            "Content-Type, Authorization",
+        )
+        resp.headers.setdefault("Access-Control-Max-Age", "86400")
+
+    return resp
+
+
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

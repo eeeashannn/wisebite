@@ -29,6 +29,11 @@ function isLikelyMobileDevice() {
   return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 }
 
+function isIOSDevice() {
+  if (typeof navigator === 'undefined') return false;
+  return /iPhone|iPad|iPod/i.test(navigator.userAgent);
+}
+
 function normalizeScannerError(err) {
   const msg = String(err?.message ?? err ?? '');
   if (/notallowederror|permission denied|denied|not allowed/i.test(msg)) {
@@ -47,6 +52,30 @@ function normalizeScannerError(err) {
     return 'Camera is busy or not readable. Close other camera apps and try again.';
   }
   return 'Could not start the camera. Use manual entry below.';
+}
+
+async function preflightCameraDeviceId() {
+  if (!navigator?.mediaDevices?.getUserMedia) {
+    throw new Error('Camera API is not available in this browser.');
+  }
+
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' } },
+      audio: false,
+    });
+  } catch {
+    stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+  }
+
+  try {
+    const track = stream.getVideoTracks?.()[0];
+    const settings = track?.getSettings?.() || {};
+    return settings.deviceId || null;
+  } finally {
+    stream?.getTracks?.().forEach((t) => t.stop());
+  }
 }
 
 function AddItemModal({ isOpen, onClose, onAddItem, onUpdateItem, initialValues }) {
@@ -213,13 +242,14 @@ function AddItemModal({ isOpen, onClose, onAddItem, onUpdateItem, initialValues 
     cameraRef.current = scanner;
 
     const isMobile = isLikelyMobileDevice();
-    const config = { fps: isMobile ? 5 : 10, qrbox: safeBarcodeQrBox };
+    const isIOS = isIOSDevice();
+    const config = isIOS ? { fps: isMobile ? 5 : 10 } : { fps: isMobile ? 5 : 10, qrbox: safeBarcodeQrBox };
 
     const startByCameraId = () =>
       Html5Qrcode.getCameras().then((cameras) => {
         if (!cameras || cameras.length === 0) throw new Error('No camera found.');
         const back = cameras.find((c) => /back|rear|environment/i.test(c.label || ''));
-        const cameraId = back ? back.id : cameras[0].id;
+        const cameraId = isIOS ? cameras[0].id : (back ? back.id : cameras[0].id);
         return scanner.start(cameraId, config, (decodedText) => lookupBarcodeAndFill(decodedText), () => {});
       });
 
@@ -233,6 +263,17 @@ function AddItemModal({ isOpen, onClose, onAddItem, onUpdateItem, initialValues 
 
     const start = async () => {
       try {
+        let preflightDeviceId = null;
+        if (isMobile) {
+          preflightDeviceId = await preflightCameraDeviceId();
+        }
+
+        if (preflightDeviceId) {
+          await scanner.start(preflightDeviceId, config, (decodedText) => lookupBarcodeAndFill(decodedText), () => {});
+          scannerStartedRef.current = true;
+          return;
+        }
+
         if (isMobile) {
           try {
             await startByFacingMode();

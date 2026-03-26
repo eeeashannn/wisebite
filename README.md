@@ -34,3 +34,21 @@ The frontend is a React app (Create React App) with a top bar that has the WiseB
 **Summary**
 
 WiseBite is a single, organised place to see what food you have, what needs using first, and how to use it, with barcode scanning and a simple AI produce check to make logging and using food easier and to reduce waste.
+
+## Produce AI setup (real vision model)
+
+The `/produce/scan` endpoint now expects a real vision API key.
+
+### Required backend environment variables
+
+- `VISION_API_KEY` (required): API key for an OpenAI-compatible vision endpoint.
+- `VISION_MODEL` (optional, default `gpt-4o-mini`): model used for produce analysis.
+- `VISION_API_URL` (optional, default `https://api.openai.com/v1/chat/completions`): endpoint URL.
+- `VISION_TIMEOUT_SECS` (optional, default `25`): outbound request timeout.
+- `VISION_MAX_IMAGE_BYTES` (optional, default `8388608`): max accepted base64-decoded image size.
+- `VISION_UNCERTAIN_CONFIDENCE` (optional, default `0.55`): below this confidence the response is marked as uncertain.
+
+### Notes for Render
+
+Set these environment variables in the Render backend service and redeploy.  
+If `VISION_API_KEY` is missing, `/produce/scan` returns an actionable error (`success: false`).

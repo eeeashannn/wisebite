@@ -7,6 +7,7 @@ import os
 import base64
 import re
 import uuid
+import json
 import jwt
 import requests
 
@@ -42,6 +43,12 @@ OUTBOUND_REQUEST_HEADERS = {
     "User-Agent": _HTTP_USER_AGENT,
     "Accept": "application/json",
 }
+VISION_API_KEY = os.environ.get("VISION_API_KEY", "").strip()
+VISION_MODEL = os.environ.get("VISION_MODEL", "gpt-4o-mini").strip() or "gpt-4o-mini"
+VISION_API_URL = os.environ.get("VISION_API_URL", "https://api.openai.com/v1/chat/completions").strip()
+VISION_TIMEOUT_SECS = float(os.environ.get("VISION_TIMEOUT_SECS", "25"))
+VISION_MAX_IMAGE_BYTES = int(os.environ.get("VISION_MAX_IMAGE_BYTES", str(8 * 1024 * 1024)))
+VISION_UNCERTAIN_CONFIDENCE = float(os.environ.get("VISION_UNCERTAIN_CONFIDENCE", "0.55"))
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROFILE_UPLOAD_DIR = os.path.join(BASE_DIR, "uploads", "profile_photos")
 ALLOWED_PROFILE_IMAGE_EXTS = {"jpg", "jpeg", "png", "webp"}
@@ -1047,35 +1054,149 @@ def generate_recipe_from_items(items, items_by_category, dietary, max_time_min, 
 
 
 # ---------- AI Produce Scanner (estimate with disclaimer) ----------
+def _clean_json_block(text):
+    s = (text or "").strip()
+    if s.startswith("```"):
+        s = re.sub(r"^```(?:json)?\s*", "", s, flags=re.IGNORECASE)
+        s = re.sub(r"\s*```$", "", s)
+    return s.strip()
+
+
+def _extract_first_json_object(text):
+    cleaned = _clean_json_block(text)
+    try:
+        return json.loads(cleaned)
+    except Exception:
+        pass
+    start = cleaned.find("{")
+    end = cleaned.rfind("}")
+    if start == -1 or end == -1 or end <= start:
+        raise ValueError("No JSON object found in model output.")
+    return json.loads(cleaned[start:end + 1])
+
+
+def _normalize_freshness(value):
+    raw = (value or "").strip().lower()
+    if raw in ("good", "fresh"):
+        return "good"
+    if raw in ("fair",):
+        return "fair"
+    if raw in ("use_soon", "use soon", "soon", "poor"):
+        return "use_soon"
+    return "fair"
+
+
+def _vision_infer_produce(base64_image):
+    prompt = (
+        "You are a produce freshness assistant. "
+        "Analyze the image and return ONLY compact JSON with keys: "
+        "detected_produce (string), estimate (good|fair|use_soon), confidence (0..1), "
+        "risk_level (low|medium|high), signals (array of 2-4 short strings), "
+        "message (short sentence), suggestion (short sentence). "
+        "If produce type is uncertain, set detected_produce to best guess and confidence lower."
+    )
+    payload = {
+        "model": VISION_MODEL,
+        "temperature": 0.2,
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}},
+                ],
+            }
+        ],
+        "max_tokens": 220,
+    }
+    headers = {
+        "Authorization": f"Bearer {VISION_API_KEY}",
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    }
+    res = requests.post(VISION_API_URL, headers=headers, json=payload, timeout=VISION_TIMEOUT_SECS)
+    if res.status_code >= 400:
+        raise RuntimeError(f"Vision API error ({res.status_code}): {res.text[:300]}")
+    data = res.json()
+    content = (((data.get("choices") or [{}])[0].get("message") or {}).get("content") or "").strip()
+    return _extract_first_json_object(content)
+
+
 @app.route('/produce/scan', methods=['POST'])
 def produce_scan():
-    # Expect JSON with base64 image or URL; we do a mock freshness estimate
     data = request.get_json() or {}
-    if not data.get('image_base64') and not data.get('image_url'):
+    image_base64 = (data.get('image_base64') or "").strip()
+    image_url = (data.get('image_url') or "").strip()
+    if not image_base64 and not image_url:
         return jsonify({"error": "image_base64 or image_url required"}), 400
-    # Mock: return a deterministic "estimate" based on image size/length for demo
-    seed = len(data.get('image_base64', '') or data.get('image_url', ''))
-    freshness = "good" if seed % 3 == 0 else ("fair" if seed % 3 == 1 else "use_soon")
-    produce_types = ["Apple", "Banana", "Tomato", "Spinach", "Avocado"]
-    detected = produce_types[seed % len(produce_types)]
-    confidence = 0.72 + ((seed % 20) / 100.0)
-    confidence = min(confidence, 0.95)
-    risk_level = "low" if freshness == "good" else ("medium" if freshness == "fair" else "high")
-    signals = [
-        "surface_color_consistency",
-        "texture_pattern",
-        "visible_bruising_score",
-    ]
-    return jsonify({
-        "success": True,
-        "estimate": freshness,
-        "message": "AI-based estimate only; may not be 100% accurate.",
-        "suggestion": "Store in fridge and use within a few days." if freshness != "good" else "Product appears fresh. Use within normal shelf life.",
-        "detected_produce": detected,
-        "confidence": round(confidence, 2),
-        "risk_level": risk_level,
-        "signals": signals,
-    })
+    if not VISION_API_KEY:
+        return jsonify({
+            "success": False,
+            "error": "VISION_API_KEY is not configured on the server.",
+        }), 503
+    if image_url:
+        return jsonify({
+            "success": False,
+            "error": "image_url mode is not enabled. Send image_base64.",
+        }), 400
+
+    try:
+        decoded = base64.b64decode(image_base64, validate=True)
+    except Exception:
+        return jsonify({"success": False, "error": "Invalid image_base64 encoding."}), 400
+    if len(decoded) > VISION_MAX_IMAGE_BYTES:
+        return jsonify({
+            "success": False,
+            "error": f"Image too large. Max size is {VISION_MAX_IMAGE_BYTES // (1024 * 1024)}MB.",
+        }), 400
+
+    try:
+        raw = _vision_infer_produce(image_base64)
+        estimate = _normalize_freshness(raw.get("estimate"))
+        confidence = raw.get("confidence")
+        try:
+            confidence = float(confidence)
+        except Exception:
+            confidence = 0.5
+        confidence = max(0.0, min(1.0, confidence))
+
+        detected = str(raw.get("detected_produce") or "Unknown produce").strip()[:80]
+        risk = str(raw.get("risk_level") or "").strip().lower()
+        if risk not in ("low", "medium", "high"):
+            risk = "low" if estimate == "good" else ("medium" if estimate == "fair" else "high")
+        signals = raw.get("signals")
+        if not isinstance(signals, list):
+            signals = []
+        signals = [str(s).strip()[:60] for s in signals if str(s).strip()][:4]
+        if not signals:
+            signals = ["color_consistency", "surface_texture"]
+
+        uncertain = confidence < VISION_UNCERTAIN_CONFIDENCE
+        message = str(raw.get("message") or "").strip()
+        if not message:
+            message = "AI-based estimate only; may not be 100% accurate."
+        suggestion = str(raw.get("suggestion") or "").strip()
+        if not suggestion:
+            suggestion = "Store in fridge and use within a few days." if estimate != "good" else "Product appears fresh. Use within normal shelf life."
+        if uncertain:
+            message = f"{message} Confidence is low; treat result as a rough guess."
+
+        return jsonify({
+            "success": True,
+            "estimate": estimate,
+            "message": message,
+            "suggestion": suggestion,
+            "detected_produce": detected,
+            "confidence": round(confidence, 2),
+            "risk_level": risk,
+            "signals": signals,
+            "uncertain": uncertain,
+        })
+    except Exception:
+        return jsonify({
+            "success": False,
+            "error": "Vision analysis failed. Try a clearer, well-lit close-up image.",
+        }), 502
 
 
 @app.after_request

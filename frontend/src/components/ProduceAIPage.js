@@ -80,6 +80,13 @@ function ProduceAIPage() {
   };
 
   const labels = { good: 'Fresh', fair: 'Use soon', use_soon: 'Use soon' };
+  const riskLabels = { low: 'Low', medium: 'Medium', high: 'High' };
+  const confidenceBand = (value) => {
+    if (typeof value !== 'number') return null;
+    if (value < 0.55) return 'Low';
+    if (value < 0.75) return 'Medium';
+    return 'High';
+  };
 
   return (
     <div className="produce-page">
@@ -141,8 +148,17 @@ function ProduceAIPage() {
         <div className="produce-result">
           <p className="produce-estimate-label">{labels[result.estimate] || result.estimate}</p>
           {result.detected_produce && <p className="produce-result-message">Detected produce: {result.detected_produce}</p>}
-          {typeof result.confidence === "number" && <p className="produce-result-message">Confidence: {Math.round(result.confidence * 100)}%</p>}
-          {result.risk_level && <p className="produce-result-message">Risk level: {result.risk_level}</p>}
+          {typeof result.confidence === "number" && (
+            <p className="produce-result-message">
+              Confidence: {Math.round(result.confidence * 100)}% ({confidenceBand(result.confidence)})
+            </p>
+          )}
+          {result.risk_level && <p className="produce-result-message">Risk level: {riskLabels[result.risk_level] || result.risk_level}</p>}
+          {result.uncertain && (
+            <p className="produce-result-message">
+              AI is uncertain about this image. Try a closer, brighter photo with the produce centered.
+            </p>
+          )}
           <p className="produce-result-message">{result.message}</p>
           <p className="produce-result-suggestion">{result.suggestion}</p>
         </div>

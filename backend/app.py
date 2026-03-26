@@ -551,6 +551,19 @@ def _social_like_count(post_id):
     return len([x for x in SOCIAL_LIKES if x.get("post_id") == post_id])
 
 
+def _same_user_id(a, b):
+    return str(a) == str(b)
+
+
+def _absolute_url(path):
+    if not path:
+        return None
+    if str(path).startswith("http"):
+        return path
+    base = request.url_root.rstrip("/")
+    return f"{base}{path}"
+
+
 def _serialize_social_post(post, me_user_id=None):
     author = _get_user_record_by_id(post.get("user_id"))
     author_profile = _user_to_profile(author) if author else None
@@ -566,6 +579,7 @@ def _serialize_social_post(post, me_user_id=None):
         "ingredients": post.get("ingredients", []),
         "steps": post.get("steps", []),
         "photo_url": post.get("photo_url"),
+        "photo_url_absolute": _absolute_url(post.get("photo_url")),
         "cooked_on": post.get("cooked_on"),
         "created_at": post.get("created_at"),
         "updated_at": post.get("updated_at"),
@@ -577,7 +591,7 @@ def _serialize_social_post(post, me_user_id=None):
         },
         "like_count": _social_like_count(post.get("id")),
         "liked_by_me": liked_by_me,
-        "is_owner": me_user_id == post.get("user_id"),
+        "is_owner": _same_user_id(me_user_id, post.get("user_id")),
     }
 
 
@@ -605,7 +619,8 @@ def upload_social_photo():
     filename = f"{user['user_id']}_{uuid.uuid4().hex[:12]}.{ext}"
     path = os.path.join(SOCIAL_UPLOAD_DIR, filename)
     photo.save(path)
-    return jsonify({"photo_url": f"/uploads/social_photos/{filename}"})
+    photo_url = f"/uploads/social_photos/{filename}"
+    return jsonify({"photo_url": photo_url, "photo_url_absolute": _absolute_url(photo_url)})
 
 
 @app.route('/social/posts', methods=['GET', 'POST'])
@@ -659,7 +674,7 @@ def social_post_detail(post_id):
     post = next((p for p in SOCIAL_POSTS if p.get("id") == post_id), None)
     if not post:
         return jsonify({"error": "Post not found"}), 404
-    if post.get("user_id") != user["user_id"]:
+    if not _same_user_id(post.get("user_id"), user["user_id"]):
         return jsonify({"error": "Forbidden"}), 403
 
     if request.method == "DELETE":

@@ -110,7 +110,7 @@ function SocialsPage({ authToken }) {
       if (!res.ok) {
         throw new Error(data?.error || "Upload failed");
       }
-      setForm((prev) => ({ ...prev, photo_url: data.photo_url || "" }));
+      setForm((prev) => ({ ...prev, photo_url: data.photo_url_absolute || data.photo_url || "" }));
     } catch (err) {
       setError(err.message || "Upload failed");
     }
@@ -187,7 +187,8 @@ function SocialsPage({ authToken }) {
         method: "DELETE",
         headers: authHeaders,
       });
-      if (!res.ok) throw new Error("Could not delete post");
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || "Could not delete post");
       await fetchFeed();
     } catch (err) {
       setError(err.message || "Could not delete post");
@@ -265,7 +266,7 @@ function SocialsPage({ authToken }) {
         <div className="socials-feed">
           {posts.length === 0 && <div className="socials-empty">No posts yet. Share the first recipe.</div>}
           {posts.map((post) => {
-            const isOwner = post.is_owner || post.user_id === myUserId;
+            const isOwner = post.is_owner || String(post.user_id) === String(myUserId);
             return (
               <article key={post.id} className="socials-card">
                 <header className="socials-card-head">
@@ -295,7 +296,11 @@ function SocialsPage({ authToken }) {
                 <h3>{post.title}</h3>
                 {post.caption && <p className="socials-caption">{post.caption}</p>}
                 {post.photo_url && (
-                  <img className="socials-post-photo" src={mediaUrl(post.photo_url)} alt={post.title} />
+                  <img
+                    className="socials-post-photo"
+                    src={post.photo_url_absolute || mediaUrl(post.photo_url)}
+                    alt={post.title}
+                  />
                 )}
                 {(post.ingredients || []).length > 0 && (
                   <div>

@@ -9,16 +9,17 @@
 
 .profile-subtitle {
   margin: 0 0 1rem;
-  color: #7f8c8d;
+  color: var(--muted);
 }
 
 .profile-card {
-  background: white;
-  border-radius: 12px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-md);
   padding: 1rem;
   display: grid;
   grid-template-columns: 220px 1fr;
   gap: 1rem;
+  border: 1px solid var(--border);
 }
 
 .profile-photo-wrap {
@@ -37,8 +38,8 @@
 }
 
 .profile-photo-fallback {
-  background: #d5f4e6;
-  color: #27ae60;
+  background: rgba(124, 58, 237, 0.35);
+  color: #f3ecff;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -48,9 +49,9 @@
 
 .profile-upload-btn {
   border: none;
-  background: #eef9f2;
-  color: #1f7f47;
-  border-radius: 8px;
+  background: rgba(124, 58, 237, 0.22);
+  color: #ddd6fe;
+  border-radius: var(--radius-sm);
   padding: 0.45rem 0.7rem;
   cursor: pointer;
   font-weight: 600;
@@ -63,8 +64,10 @@
 }
 
 .profile-form input {
-  border: 1px solid #d9dee5;
-  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
   padding: 0.6rem 0.75rem;
 }
 
@@ -72,9 +75,9 @@
   margin-top: 0.5rem;
   width: fit-content;
   border: none;
-  background: #27ae60;
+  background: linear-gradient(90deg, var(--primary), var(--primary-2));
   color: white;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   padding: 0.55rem 0.8rem;
   cursor: pointer;
 }
@@ -84,11 +87,11 @@
 }
 
 .profile-message.error {
-  color: #c0392b;
+  color: #ff98ad;
 }
 
 .profile-message.success {
-  color: #1f7f47;
+  color: #8af0b0;
 }
 
 @media (max-width: 768px) {

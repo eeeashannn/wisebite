@@ -5,7 +5,7 @@
 .reminder-title {
   margin: 0 0 0.6rem;
   font-size: 1.1rem;
-  color: #2c3e50;
+  color: var(--text);
 }
 
 .reminder-grid {
@@ -15,15 +15,16 @@
 }
 
 .reminder-card {
-  background: white;
-  border-radius: 10px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-sm);
   padding: 0.8rem;
-  border: 1px solid #e8edf2;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
 }
 
 .reminder-label {
   margin: 0;
-  color: #7f8c8d;
+  color: var(--muted);
   font-size: 0.85rem;
 }
 
@@ -31,6 +32,7 @@
   margin: 0.2rem 0 0;
   font-size: 1.35rem;
   font-weight: 700;
+  color: var(--text);
 }
 
 @media (max-width: 768px) {

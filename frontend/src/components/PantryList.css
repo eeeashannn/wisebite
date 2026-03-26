@@ -12,12 +12,12 @@
 .pantry-page-title {
   font-size: 2rem;
   font-weight: 700;
-  color: #2c3e50;
+  color: var(--text);
   margin: 0 0 0.25rem 0;
 }
 
 .pantry-page-count {
-  color: #7f8c8d;
+  color: var(--muted);
   margin: 0;
   font-size: 1rem;
 }
@@ -27,18 +27,20 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.6rem 1.25rem;
-  background: #27ae60;
+  background: linear-gradient(90deg, var(--primary), var(--primary-2));
   color: white;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   font-weight: 600;
   font-size: 0.95rem;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: transform var(--speed), filter var(--speed);
+  min-height: 44px;
 }
 
 .add-item-btn:hover {
-  background: #229954;
+  transform: translateY(-1px);
+  filter: brightness(1.08);
 }
 
 .add-icon {
@@ -55,9 +57,9 @@
   flex: 1;
   display: flex;
   align-items: center;
-  background: white;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
   padding: 0 1rem;
 }
 
@@ -73,15 +75,23 @@
   padding: 0.75rem 0;
   font-size: 1rem;
   outline: none;
+  background: transparent;
+  color: var(--text);
+}
+
+.search-input::placeholder {
+  color: var(--muted);
 }
 
 .category-select {
   padding: 0.75rem 1rem;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  background: white;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  color: var(--text);
   font-size: 0.95rem;
   min-width: 160px;
+  min-height: 44px;
 }
 
 .pantry-grid {
@@ -91,23 +101,25 @@
 }
 
 .pantry-empty {
-  background: white;
-  border-radius: 12px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-md);
   padding: 3rem;
   text-align: center;
-  color: #7f8c8d;
+  color: var(--muted);
+  border: 1px solid var(--border);
 }
 
 .loading,
 .error {
   text-align: center;
   padding: 3rem;
-  background: white;
-  border-radius: 12px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
 }
 
 .error {
-  color: #e74c3c;
+  color: #ff9cb0;
 }
 
 .error h2 {

@@ -5,28 +5,28 @@
 .recipes-page-title {
   font-size: 2rem;
   font-weight: 700;
-  color: #2c3e50;
+  color: var(--text);
   margin: 0 0 0.25rem 0;
 }
 
 .recipes-page-subtitle {
-  color: #7f8c8d;
+  color: var(--muted);
   margin: 0 0 1.5rem 0;
   font-size: 1rem;
 }
 
 .priority-ingredients-box {
-  background: #fef9e7;
-  border-radius: 12px;
+  background: linear-gradient(100deg, rgba(124, 58, 237, 0.22), rgba(6, 182, 212, 0.14));
+  border-radius: var(--radius-md);
   padding: 1.25rem;
   margin-bottom: 1.5rem;
-  border: 1px solid #f0e6c8;
+  border: 1px solid var(--border);
 }
 
 .priority-ingredients-title {
   font-size: 1rem;
   font-weight: 700;
-  color: #2c3e50;
+  color: var(--text);
   margin: 0 0 0.75rem 0;
 }
 
@@ -39,9 +39,9 @@
 .priority-tag {
   display: inline-block;
   padding: 0.4rem 0.75rem;
-  background: white;
-  border: 1px solid #e0e0e0;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 20px;
   font-size: 0.85rem;
-  color: #2c3e50;
+  color: #dce8ff;
 }

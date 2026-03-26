@@ -8,7 +8,7 @@
 }
 
 .shopping-subtitle {
-  color: #7f8c8d;
+  color: var(--muted);
   margin: 0 0 1.2rem;
 }
 
@@ -20,25 +20,28 @@
 
 .shopping-input {
   flex: 1;
-  border: 1px solid #d9dee5;
-  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
   padding: 0.65rem 0.8rem;
 }
 
 .shopping-add-btn {
   border: none;
-  background: #27ae60;
+  background: linear-gradient(90deg, var(--primary), var(--primary-2));
   color: white;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   padding: 0.6rem 1rem;
   cursor: pointer;
 }
 
 .shopping-card {
-  background: white;
-  border-radius: 12px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-md);
   padding: 1rem;
   margin-bottom: 1rem;
+  border: 1px solid var(--border);
 }
 
 .shopping-suggestions {
@@ -48,9 +51,9 @@
 }
 
 .suggestion-chip {
-  border: 1px solid #b8e5c8;
-  background: #eef9f2;
-  color: #1f7f47;
+  border: 1px solid #4464aa;
+  background: rgba(124, 58, 237, 0.2);
+  color: #dcd5ff;
   border-radius: 999px;
   padding: 0.35rem 0.7rem;
   cursor: pointer;
@@ -66,8 +69,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border: 1px solid #eef1f4;
-  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
   padding: 0.65rem 0.75rem;
 }
 
@@ -78,19 +82,19 @@
 
 .shopping-item-meta {
   margin: 0.2rem 0 0;
-  color: #7f8c8d;
+  color: var(--muted);
   font-size: 0.85rem;
 }
 
 .shopping-remove-btn {
   border: none;
-  background: #fdeeee;
-  color: #c0392b;
-  border-radius: 8px;
+  background: rgba(244, 63, 94, 0.2);
+  color: #ffb7c4;
+  border-radius: var(--radius-sm);
   padding: 0.4rem 0.6rem;
   cursor: pointer;
 }
 
 .shopping-empty {
-  color: #7f8c8d;
+  color: var(--muted);
 }

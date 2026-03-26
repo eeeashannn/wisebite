@@ -1,9 +1,9 @@
 .pantry-card {
-  background: white;
-  border-radius: 12px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-md);
   padding: 1.25rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  border: 1px solid rgba(44, 62, 80, 0.08);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border);
   border-left-width: 4px;
   border-left-color: #bdc3c7;
   position: relative;
@@ -12,17 +12,17 @@
 
 .pantry-card--expired {
   border-left-color: #e74c3c;
-  background: linear-gradient(105deg, rgba(231, 76, 60, 0.07) 0%, #fff 42%);
+  background: linear-gradient(105deg, rgba(244, 63, 94, 0.2) 0%, var(--bg-elevated) 48%);
 }
 
 .pantry-card--expiring {
-  border-left-color: #e67e22;
-  background: linear-gradient(105deg, rgba(230, 126, 34, 0.09) 0%, #fff 42%);
+  border-left-color: var(--warning);
+  background: linear-gradient(105deg, rgba(245, 158, 11, 0.2) 0%, var(--bg-elevated) 48%);
 }
 
 .pantry-card--fresh {
-  border-left-color: #27ae60;
-  background: linear-gradient(105deg, rgba(39, 174, 96, 0.07) 0%, #fff 42%);
+  border-left-color: var(--success);
+  background: linear-gradient(105deg, rgba(34, 197, 94, 0.18) 0%, var(--bg-elevated) 48%);
 }
 
 .pantry-card--unknown {
@@ -30,7 +30,7 @@
 }
 
 .pantry-card:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-md);
 }
 
 .pantry-card-actions {
@@ -45,8 +45,8 @@
   width: 32px;
   height: 32px;
   border: none;
-  background: #f0f2f5;
-  border-radius: 8px;
+  background: var(--surface);
+  border-radius: var(--radius-sm);
   cursor: pointer;
   font-size: 0.9rem;
   display: flex;
@@ -56,14 +56,14 @@
 }
 
 .card-action-btn:hover {
-  background: #e0e0e0;
+  background: var(--surface-soft);
 }
 
 .pantry-card-icon {
   width: 56px;
   height: 56px;
   border-radius: 10px;
-  background: #f0f2f5;
+  background: var(--surface);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -73,7 +73,7 @@
 .pantry-card-letter {
   font-size: 1.5rem;
   font-weight: 700;
-  color: #7f8c8d;
+  color: var(--muted);
 }
 
 .expiry-dot {
@@ -111,7 +111,7 @@
 .pantry-card-name {
   font-size: 1.1rem;
   font-weight: 600;
-  color: #2c3e50;
+  color: var(--text);
   margin: 0 0 0.25rem 0;
 }
 
@@ -119,7 +119,7 @@
 .pantry-card-quantity,
 .pantry-card-added {
   font-size: 0.85rem;
-  color: #7f8c8d;
+  color: var(--muted);
   margin: 0.25rem 0;
 }
 
@@ -133,34 +133,34 @@
 }
 
 .pantry-card-expiry.expired {
-  color: #c0392b;
+  color: #ff9cb0;
 }
 
 .pantry-card-expiry.expiring-soon {
-  color: #d35400;
+  color: #ffd18a;
 }
 
 .pantry-card-expiry.fresh {
-  color: #1e8449;
+  color: #96f1b8;
 }
 
 .pantry-card-expiry.unknown {
-  color: #7f8c8d;
+  color: var(--muted);
 }
 
 .consume-btn {
   margin-top: 0.75rem;
   width: 100%;
-  border: 1px solid #27ae60;
-  background: #eefaf1;
-  color: #1e874b;
-  border-radius: 8px;
+  border: 1px solid #4f6db1;
+  background: linear-gradient(90deg, rgba(124, 58, 237, 0.25), rgba(6, 182, 212, 0.18));
+  color: #eef4ff;
+  border-radius: var(--radius-sm);
   padding: 0.5rem 0.75rem;
   font-weight: 600;
   cursor: pointer;
 }
 
 .consume-btn:hover {
-  background: #e1f6e8;
+  filter: brightness(1.08);
 }
 

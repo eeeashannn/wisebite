@@ -1,17 +1,20 @@
 .App {
   min-height: 100vh;
-  background: #f5f7fa;
+  background: transparent;
+  color: var(--text);
 }
 
-/* ----- Top navigation bar ----- */
 .topnav {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 2rem;
-  height: 64px;
-  background: white;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  gap: var(--space-2);
+  padding: 0.75rem 1.25rem;
+  min-height: 70px;
+  background: color-mix(in srgb, var(--bg-elevated) 80%, transparent);
+  border-bottom: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  backdrop-filter: blur(8px);
   position: sticky;
   top: 0;
   z-index: 100;
@@ -29,16 +32,16 @@
 }
 
 .topnav-brand:hover {
-  opacity: 0.9;
+  opacity: 0.95;
 }
 
 .brand-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  color: #27ae60;
+  width: 38px;
+  height: 38px;
+  color: var(--success);
 }
 
 .brand-logo-svg {
@@ -47,9 +50,9 @@
 }
 
 .brand-title {
-  font-size: 1.4rem;
-  font-weight: 700;
-  color: #2c3e50;
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--text);
   margin: 0;
   letter-spacing: -0.02em;
 }
@@ -62,7 +65,8 @@
   flex-shrink: 0;
 }
 
-.pages-menu-wrap {
+.pages-menu-wrap,
+.profile-menu-wrap {
   position: relative;
 }
 
@@ -70,30 +74,31 @@
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  padding: 0.45rem 0.75rem;
-  border: 1px solid #e6eaef;
-  border-radius: 10px;
-  background: white;
+  padding: 0.55rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
   cursor: pointer;
   font: inherit;
   font-size: 0.95rem;
-  font-weight: 600;
-  color: #2c3e50;
-  transition: background 0.2s, border-color 0.2s, color 0.2s;
+  font-weight: 700;
+  color: var(--text);
+  transition: transform var(--speed), background var(--speed), border-color var(--speed), color var(--speed);
 }
 
 .pages-menu-trigger:hover {
-  background: #f8faf9;
-  border-color: #d5ded8;
+  transform: translateY(-1px);
+  background: var(--surface-soft);
+  border-color: #3c5492;
 }
 
 .pages-menu-trigger.open {
-  background: #d5f4e6;
-  border-color: #27ae60;
-  color: #1e8449;
+  background: linear-gradient(90deg, rgba(124, 58, 237, 0.28), rgba(6, 182, 212, 0.2));
+  border-color: #6178b3;
 }
 
-.pages-menu-trigger-icon {
+.pages-menu-trigger-icon,
+.pages-menu-item-icon {
   display: flex;
   color: inherit;
 }
@@ -110,27 +115,27 @@
   height: 0;
   border-left: 5px solid transparent;
   border-right: 5px solid transparent;
-  border-top: 6px solid #95a5a6;
+  border-top: 6px solid #a8badf;
   flex-shrink: 0;
 }
 
-.pages-menu-trigger.open .pages-menu-chevron {
-  border-top-color: #27ae60;
+.pages-menu-dropdown,
+.profile-menu-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.4rem);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  z-index: 300;
 }
 
 .pages-menu-dropdown {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 0.35rem);
-  background: white;
-  border: 1px solid #e6eaef;
-  border-radius: 10px;
   min-width: 228px;
   max-height: min(70vh, 440px);
   overflow-y: auto;
   padding: 0.35rem;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.1);
-  z-index: 300;
 }
 
 .pages-menu-item {
@@ -141,44 +146,27 @@
   border: none;
   background: transparent;
   text-align: left;
-  border-radius: 8px;
-  padding: 0.6rem 0.75rem;
+  border-radius: var(--radius-sm);
+  padding: 0.65rem 0.75rem;
   cursor: pointer;
   font: inherit;
   font-size: 0.95rem;
-  font-weight: 500;
-  color: #2c3e50;
+  font-weight: 600;
+  color: var(--text);
+  min-height: 44px;
 }
 
 .pages-menu-item:hover {
-  background: #f5f7fa;
+  background: var(--surface);
 }
 
 .pages-menu-item.active {
-  background: #d5f4e6;
-  color: #27ae60;
-}
-
-.pages-menu-item.active .pages-menu-item-icon svg {
-  stroke: #27ae60;
-}
-
-.pages-menu-item-icon {
-  display: flex;
-  flex-shrink: 0;
-  opacity: 0.9;
-}
-
-.pages-menu-item.active .pages-menu-item-icon {
-  opacity: 1;
-}
-
-.profile-menu-wrap {
-  position: relative;
+  background: linear-gradient(90deg, rgba(124, 58, 237, 0.3), rgba(6, 182, 212, 0.22));
+  color: #fff;
 }
 
 .profile-menu-trigger {
-  border: none;
+  border: 1px solid transparent;
   background: transparent;
   border-radius: 999px;
   padding: 0.25rem 0.5rem 0.25rem 0.25rem;
@@ -186,16 +174,18 @@
   align-items: center;
   gap: 0.45rem;
   cursor: pointer;
+  min-height: 44px;
 }
 
 .profile-menu-trigger:hover {
-  background: #f5f7fa;
+  background: var(--surface);
+  border-color: var(--border);
 }
 
 .profile-trigger-photo,
 .profile-trigger-fallback {
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
 }
 
@@ -204,8 +194,8 @@
 }
 
 .profile-trigger-fallback {
-  background: #d5f4e6;
-  color: #27ae60;
+  background: rgba(124, 58, 237, 0.35);
+  color: #f5f3ff;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -213,7 +203,7 @@
 }
 
 .profile-trigger-name {
-  color: #2c3e50;
+  color: var(--text);
   font-size: 0.9rem;
   max-width: 128px;
   white-space: nowrap;
@@ -222,48 +212,53 @@
 }
 
 .profile-menu-dropdown {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 0.35rem);
-  background: white;
-  border: 1px solid #e6eaef;
-  border-radius: 10px;
   min-width: 170px;
   padding: 0.25rem;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
-  z-index: 300;
 }
 
 .profile-menu-item {
   width: 100%;
   border: none;
   background: transparent;
+  color: var(--text);
   text-align: left;
-  border-radius: 8px;
-  padding: 0.55rem 0.7rem;
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.75rem;
   cursor: pointer;
+  min-height: 44px;
 }
 
 .profile-menu-item:hover {
-  background: #f5f7fa;
+  background: var(--surface);
 }
 
 .profile-menu-item.danger {
-  color: #c0392b;
+  color: #ff8da1;
 }
 
 .main-content {
-  padding: 2rem;
+  padding: var(--space-5);
   max-width: 1200px;
   margin: 0 auto;
 }
 
-@media (max-width: 768px) {
+/* shared vibrant surfaces for most component blocks */
+.App [class*="card"],
+.App [class*="panel"],
+.App [class*="box"],
+.App [class*="modal"],
+.App [class*="dropdown"],
+.App [class*="section"],
+.App [class*="content"],
+.App [class*="wrap"] {
+  border-color: var(--border);
+}
+
+@media (max-width: 900px) {
   .topnav {
     flex-wrap: wrap;
     height: auto;
     padding: 0.75rem 1rem;
-    gap: 0.5rem;
   }
 
   .topnav-actions {
@@ -277,8 +272,6 @@
   }
 
   .pages-menu-dropdown {
-    right: 0;
-    left: auto;
     max-width: calc(100vw - 2rem);
   }
 

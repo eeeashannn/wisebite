@@ -95,6 +95,46 @@ def _get_user_record_by_id(user_id):
     return next((u for u in USERS.values() if u.get("id") == user_id), None)
 
 
+def _ensure_user_record_for_claims(user_claims):
+    """
+    Best-effort self-heal for stale sessions when USERS in-memory state drifts.
+    If a JWT is valid but user record is missing, recreate a minimal record so
+    profile/social endpoints remain usable without forcing full account reset.
+    """
+    global _NEXT_USER_ID
+    if not user_claims:
+        return None
+    user_id = user_claims.get("user_id")
+    email = (user_claims.get("email") or "").strip().lower()
+    if not user_id or not email:
+        return None
+
+    existing_by_id = _get_user_record_by_id(user_id)
+    if existing_by_id:
+        if not existing_by_id.get("email"):
+            existing_by_id["email"] = email
+        return existing_by_id
+
+    existing_by_email = USERS.get(email)
+    if existing_by_email:
+        existing_by_email["id"] = user_id
+        return existing_by_email
+
+    # Recreate minimal account record; keep login disabled unless password reset/signup flow updates it.
+    USERS[email] = {
+        "id": user_id,
+        "email": email,
+        "name": _default_name_from_email(email),
+        "photo_url": None,
+        "password_hash": generate_password_hash(uuid.uuid4().hex),
+    }
+    try:
+        _NEXT_USER_ID = max(int(_NEXT_USER_ID), int(user_id) + 1)
+    except Exception:
+        pass
+    return USERS[email]
+
+
 def _allowed_profile_file(filename):
     if not filename or "." not in filename:
         return False
@@ -775,6 +815,8 @@ def profile():
         return jsonify({"error": "Unauthorized"}), 401
     user_record = _get_user_record_by_id(user["user_id"])
     if not user_record:
+        user_record = _ensure_user_record_for_claims(user)
+    if not user_record:
         return jsonify({"error": "User not found"}), 404
 
     if request.method == "GET":
@@ -795,6 +837,8 @@ def upload_profile_photo():
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
     user_record = _get_user_record_by_id(user["user_id"])
+    if not user_record:
+        user_record = _ensure_user_record_for_claims(user)
     if not user_record:
         return jsonify({"error": "User not found"}), 404
 

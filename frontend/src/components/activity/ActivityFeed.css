@@ -1,8 +1,9 @@
 .activity-feed {
   margin-top: 1.2rem;
-  background: white;
-  border-radius: 12px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-md);
   padding: 1rem;
+  border: 1px solid var(--border);
 }
 
 .activity-title {
@@ -20,23 +21,24 @@
 }
 
 .activity-row {
-  border: 1px solid #edf1f4;
-  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
   padding: 0.65rem 0.75rem;
+  background: var(--surface);
 }
 
 .activity-message {
   margin: 0;
   font-weight: 600;
-  color: #2c3e50;
+  color: var(--text);
 }
 
 .activity-time {
   margin: 0.2rem 0 0;
-  color: #7f8c8d;
+  color: var(--muted);
   font-size: 0.8rem;
 }
 
 .activity-empty {
-  color: #7f8c8d;
+  color: var(--muted);
 }

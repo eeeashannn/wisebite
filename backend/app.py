@@ -1373,38 +1373,210 @@ def generate_recipe():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-def generate_recipe_from_items(items, items_by_category, dietary, max_time_min, cuisine):
-    templates = {
-        'Dairy': {'name': 'Creamy Pasta Delight', 'description': 'A rich and creamy pasta dish.', 'prep_time': '20 min', 'servings': 2},
-        'Vegetables': {'name': 'Fresh Vegetable Stir-Fry', 'description': 'Quick and healthy stir-fry.', 'prep_time': '15 min', 'servings': 2},
-        'Meat': {'name': 'Grilled Chicken with Vegetables', 'description': 'Tender grilled chicken with sides.', 'prep_time': '25 min', 'servings': 2},
-        'Bakery': {'name': 'French Toast Breakfast', 'description': 'Classic French toast.', 'prep_time': '15 min', 'servings': 2},
-        'Pantry': {'name': 'Pasta with Sauce', 'description': 'Simple pasta dish.', 'prep_time': '15 min', 'servings': 2},
-    }
-    best = None
-    for cat in items_by_category:
-        if cat in templates:
-            exp = [i for i in items_by_category[cat] if i.get('days_remaining', 999) <= 3]
-            if exp:
-                best = cat
-                break
-    if not best and items_by_category:
-        best = list(items_by_category.keys())[0]
-    template = templates.get(best, {'name': 'Quick Pantry Meal', 'description': 'A simple meal with your ingredients.', 'prep_time': '20 min', 'servings': 2})
+def _safe_float(v, fallback=1.0):
+    try:
+        return float(v)
+    except Exception:
+        return fallback
 
-    instructions = [
-        "Gather all the ingredients listed above.",
-        "Prepare your workspace and utensils.",
-        "Follow the cooking method for this recipe type.",
-        "Cook until combined and heated through.",
-        "Serve and enjoy!",
-    ]
-    ings = [{"name": i["name"], "category": i.get("category", "Other"), "quantity": i.get("quantity", 1), "days_remaining": i.get("days_remaining", 999)} for i in items[:5]]
+
+def _recipe_category_profile(category):
+    profiles = {
+        "Vegetables": {
+            "title": "Pantry Veggie Stir-Fry Bowl",
+            "description": "A quick, balanced stir-fry that prioritizes produce expiring soon.",
+            "base_minutes": 22,
+            "cook_temp": "Medium-high heat",
+        },
+        "Meat": {
+            "title": "Hearty Skillet Meal",
+            "description": "A one-pan meal with protein and vegetables from your pantry.",
+            "base_minutes": 32,
+            "cook_temp": "Medium heat",
+        },
+        "Dairy": {
+            "title": "Creamy Pantry Pasta",
+            "description": "Comforting creamy pasta made from what you already have.",
+            "base_minutes": 24,
+            "cook_temp": "Medium heat",
+        },
+        "Bakery": {
+            "title": "Savory Toast & Pan Mix",
+            "description": "A toast-based plate using bakery and fridge ingredients.",
+            "base_minutes": 18,
+            "cook_temp": "Low-medium heat",
+        },
+        "Pantry": {
+            "title": "Quick Pantry Fusion Bowl",
+            "description": "A flexible meal that combines pantry staples into a complete dish.",
+            "base_minutes": 20,
+            "cook_temp": "Medium heat",
+        },
+    }
+    return profiles.get(
+        category,
+        {
+            "title": "Smart Pantry Meal",
+            "description": "A practical recipe adapted from your available ingredients.",
+            "base_minutes": 22,
+            "cook_temp": "Medium heat",
+        },
+    )
+
+
+def _estimate_amount(item):
+    qty = _safe_float(item.get("quantity"), 1.0)
+    unit = (item.get("unit") or "portion").strip()
+    if qty <= 0:
+        qty = 1.0
+    if qty < 1:
+        amount = f"{qty:.1f} {unit}"
+    elif qty <= 3:
+        amount = f"{int(round(qty))} {unit}"
+    else:
+        amount = f"{max(1, int(round(qty * 0.5)))} {unit}"
+    return amount
+
+
+def _nutrition_estimate(ingredients, servings):
+    kcal = protein = carbs = fat = 0.0
+    for ing in ingredients:
+        cat = (ing.get("category") or "Other").lower()
+        if "meat" in cat:
+            kcal += 220
+            protein += 22
+            fat += 12
+        elif "dairy" in cat:
+            kcal += 140
+            protein += 8
+            fat += 8
+            carbs += 6
+        elif "vegetable" in cat or "fruit" in cat:
+            kcal += 60
+            carbs += 12
+            protein += 2
+        elif "bakery" in cat or "pantry" in cat:
+            kcal += 170
+            carbs += 28
+            protein += 4
+            fat += 3
+        else:
+            kcal += 100
+            carbs += 12
+            protein += 4
+            fat += 4
+
+    servings = max(1, int(servings or 2))
     return {
-        **template,
-        "ingredients": ings,
+        "calories_kcal": int(round(kcal / servings)),
+        "protein_g": int(round(protein / servings)),
+        "carbs_g": int(round(carbs / servings)),
+        "fat_g": int(round(fat / servings)),
+    }
+
+
+def generate_recipe_from_items(items, items_by_category, dietary, max_time_min, cuisine):
+    best_category = None
+    category_priority = sorted(
+        list(items_by_category.keys()),
+        key=lambda cat: len([i for i in items_by_category.get(cat, []) if i.get("days_remaining", 999) <= 3]),
+        reverse=True,
+    )
+    if category_priority:
+        best_category = category_priority[0]
+
+    profile = _recipe_category_profile(best_category)
+    prioritized_items = items[:5]
+    if not prioritized_items:
+        prioritized_items = [{"name": "Pantry mix", "category": "Pantry", "quantity": 1, "days_remaining": 999}]
+
+    servings = 2 if len(prioritized_items) < 4 else 3
+    prep_minutes = 8 + min(10, len(prioritized_items) * 2)
+    cook_minutes = profile["base_minutes"] + min(10, len(prioritized_items))
+    total_minutes = prep_minutes + cook_minutes
+    if max_time_min:
+        try:
+            max_time_min = int(max_time_min)
+            total_minutes = min(total_minutes, max_time_min)
+            cook_minutes = max(8, total_minutes - prep_minutes)
+        except Exception:
+            pass
+
+    ingredients = []
+    for i in prioritized_items:
+        ingredients.append(
+            {
+                "name": i.get("name"),
+                "category": i.get("category", "Other"),
+                "quantity": i.get("quantity", 1),
+                "days_remaining": i.get("days_remaining", 999),
+                "amount": _estimate_amount(i),
+            }
+        )
+
+    prep_steps = [
+        {
+            "text": "Wash, trim, and portion all ingredients. Keep expiring items in the front of your prep board.",
+            "minutes": max(4, prep_minutes // 2),
+            "temperature": "N/A",
+        },
+        {
+            "text": "Measure seasonings and set aside any quick-cook ingredients to add at the end.",
+            "minutes": max(3, prep_minutes - (prep_minutes // 2)),
+            "temperature": "N/A",
+        },
+    ]
+    cook_steps = [
+        {
+            "text": f"Heat a large pan with oil, then add firm ingredients first and saute until lightly browned.",
+            "minutes": max(6, cook_minutes // 2),
+            "temperature": profile["cook_temp"],
+        },
+        {
+            "text": "Add softer ingredients, stir, and season in layers. Add a splash of water if needed to prevent sticking.",
+            "minutes": max(4, cook_minutes // 3),
+            "temperature": profile["cook_temp"],
+        },
+        {
+            "text": "Taste and adjust salt, acidity, or spice. Finish with herbs or dairy topping if available.",
+            "minutes": max(2, cook_minutes - (cook_minutes // 2) - (cook_minutes // 3)),
+            "temperature": "Low heat",
+        },
+    ]
+    finish_steps = [
+        {
+            "text": "Plate while hot, dividing evenly by servings.",
+            "minutes": 2,
+            "temperature": "N/A",
+        },
+        {
+            "text": "Store leftovers in airtight containers within 1 hour.",
+            "minutes": 1,
+            "temperature": "N/A",
+        },
+    ]
+
+    instructions = [x["text"] for x in prep_steps + cook_steps + finish_steps]
+
+    return {
+        "name": profile["title"],
+        "description": profile["description"],
+        "prep_time": f"{total_minutes} min",
+        "servings": servings,
+        "ingredients": ingredients,
         "instructions": instructions,
-        "priority_items": [i for i in items if i.get("days_remaining", 999) <= 3],
+        "instruction_sections": {
+            "prep": prep_steps,
+            "cook": cook_steps,
+            "finish": finish_steps,
+        },
+        "timing_summary": {
+            "prep_minutes": prep_minutes,
+            "cook_minutes": cook_minutes,
+            "total_minutes": total_minutes,
+        },
+        "nutrition_per_serving": _nutrition_estimate(ingredients, servings),
+        "priority_items": [i for i in prioritized_items if i.get("days_remaining", 999) <= 3],
         "dietary_note": dietary or None,
         "cuisine_note": cuisine or None,
         "max_time_minutes": max_time_min,

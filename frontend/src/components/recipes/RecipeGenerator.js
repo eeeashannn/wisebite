@@ -85,8 +85,12 @@ function RecipeGenerator({ items, authToken, onGenerateRecipe, onUseRecipeIngred
                 category: ing.category,
                 daysRemaining: ing.days_remaining ?? 999,
                 quantity: ing.quantity || 1,
+                amount: ing.amount || null,
               })),
               instructions: r.instructions || [],
+              instructionSections: r.instruction_sections || null,
+              timingSummary: r.timing_summary || null,
+              nutritionPerServing: r.nutrition_per_serving || null,
               priorityItems: r.priority_items || [],
               prepTime: r.prep_time,
               servings: r.servings,
@@ -190,15 +194,28 @@ function RecipeGenerator({ items, authToken, onGenerateRecipe, onUseRecipeIngred
       prepTime: maxTime ? `Under ${maxTime} min` : '15-20 min',
       servings: 2,
       missingIngredients: selectedRecipe.missing || [],
+      instructionSections: {
+        prep: [
+          { text: 'Wash and prep your ingredients.', minutes: 5, temperature: 'N/A' },
+        ],
+        cook: [
+          { text: 'Cook main ingredients in a pan until done.', minutes: 10, temperature: 'Medium heat' },
+        ],
+        finish: [
+          { text: 'Taste, season, and plate.', minutes: 2, temperature: 'N/A' },
+        ],
+      },
+      timingSummary: { prep_minutes: 5, cook_minutes: 10, total_minutes: 15 },
+      nutritionPerServing: { calories_kcal: 320, protein_g: 14, carbs_g: 36, fat_g: 12 },
     };
   };
 
   return (
     <div className="recipe-generator">
       <div className="recipe-generator-header">
-        <h2 className="recipe-title">AI Recipe Generator</h2>
+        <h2 className="recipe-title">Advanced Recipe Generator</h2>
         <p className="recipe-subtitle">
-          Context-aware recipes from your pantry: expiry priority, dietary preferences, cooking time, and cuisine.
+          Richer local recipes from your pantry with prep/cook/finish phases, timings, and nutrition estimates.
         </p>
       </div>
 
@@ -259,7 +276,9 @@ function RecipeGenerator({ items, authToken, onGenerateRecipe, onUseRecipeIngred
                 const isExpiring = ingredient.daysRemaining <= 3;
                 return (
                   <li key={index} className={isExpiring ? 'expiring-ingredient' : ''}>
-                    <span className="ingredient-name">{ingredient.name}</span>
+                    <span className="ingredient-name">
+                      {ingredient.amount ? `${ingredient.amount} - ` : ''}{ingredient.name}
+                    </span>
                     {isExpiring && (
                       <span className="expiry-badge">
                         {ingredient.daysRemaining < 0 ? `Expired ${Math.abs(ingredient.daysRemaining)}d ago` : `Expires in ${ingredient.daysRemaining}d`}
@@ -299,11 +318,70 @@ function RecipeGenerator({ items, authToken, onGenerateRecipe, onUseRecipeIngred
           )}
           <div className="recipe-section">
             <h4 className="section-title">Instructions</h4>
-            <ol className="instructions-list">
-              {(recipe.instructions || []).map((instruction, index) => (
-                <li key={index}>{instruction}</li>
-              ))}
-            </ol>
+            {recipe.instructionSections ? (
+              <div>
+                <h5>Prep</h5>
+                <ol className="instructions-list">
+                  {(recipe.instructionSections.prep || []).map((step, index) => (
+                    <li key={`prep-${index}`}>
+                      {step.text || step}
+                      {step.minutes ? ` (${step.minutes} min)` : ''}
+                      {step.temperature && step.temperature !== 'N/A' ? `, ${step.temperature}` : ''}
+                    </li>
+                  ))}
+                </ol>
+                <h5>Cook</h5>
+                <ol className="instructions-list">
+                  {(recipe.instructionSections.cook || []).map((step, index) => (
+                    <li key={`cook-${index}`}>
+                      {step.text || step}
+                      {step.minutes ? ` (${step.minutes} min)` : ''}
+                      {step.temperature && step.temperature !== 'N/A' ? `, ${step.temperature}` : ''}
+                    </li>
+                  ))}
+                </ol>
+                <h5>Finish</h5>
+                <ol className="instructions-list">
+                  {(recipe.instructionSections.finish || []).map((step, index) => (
+                    <li key={`finish-${index}`}>
+                      {step.text || step}
+                      {step.minutes ? ` (${step.minutes} min)` : ''}
+                      {step.temperature && step.temperature !== 'N/A' ? `, ${step.temperature}` : ''}
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            ) : (
+              <ol className="instructions-list">
+                {(recipe.instructions || []).map((instruction, index) => (
+                  <li key={index}>{instruction}</li>
+                ))}
+              </ol>
+            )}
+          </div>
+          {recipe.timingSummary && (
+            <div className="recipe-section">
+              <h4 className="section-title">Timing</h4>
+              <p>
+                Prep: {recipe.timingSummary.prep_minutes || 0} min, Cook: {recipe.timingSummary.cook_minutes || 0} min,
+                Total: {recipe.timingSummary.total_minutes || 0} min
+              </p>
+            </div>
+          )}
+          {recipe.nutritionPerServing && (
+            <div className="recipe-section">
+              <h4 className="section-title">Nutrition (per serving)</h4>
+              <p>
+                {recipe.nutritionPerServing.calories_kcal || 0} kcal ·
+                Protein {recipe.nutritionPerServing.protein_g || 0}g ·
+                Carbs {recipe.nutritionPerServing.carbs_g || 0}g ·
+                Fat {recipe.nutritionPerServing.fat_g || 0}g
+              </p>
+            </div>
+          )}
+          <div className="recipe-section">
+            <h4 className="section-title">Quick Notes</h4>
+            <p>This advanced recipe is generated locally (free mode) using your pantry priorities and preferences.</p>
           </div>
           <button
             type="button"

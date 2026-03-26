@@ -196,8 +196,8 @@ function SocialsPage({ authToken }) {
 
   return (
     <div className="socials-page">
-      <h1 className="socials-title">Socials Recipe Sharing</h1>
-      <p className="socials-subtitle">Share what you cooked and see recipes from everyone.</p>
+      <h1 className="socials-title">Share Your Recipes</h1>
+      <p className="socials-subtitle">Post what you cooked and explore recipes from everyone.</p>
 
       <form className="socials-composer" onSubmit={submitPost}>
         <h2>{editingId ? "Edit recipe post" : "Create recipe post"}</h2>

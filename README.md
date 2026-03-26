@@ -17,11 +17,11 @@ The Scan area is for adding products by barcode. Users can turn on the device ca
 
 **Recipes**
 
-The Recipes area helps users cook with what they have. It highlights “priority” ingredients: items that will expire within about a week. Users can choose dietary style (e.g. vegetarian, vegan, gluten free), cuisine (e.g. Italian, Asian, Mexican), and maximum cooking time (e.g. under 15, 30, or 45 minutes). After they request a recipe, the backend suggests one based on their pantry, favouring items that are expiring soon. The result shows recipe name, description, ingredients, and steps, and can list “missing ingredients” with links to search for them on Deliveroo or Uber Eats so users can order what they don’t have.
+The Recipes area helps users cook with what they have. It highlights “priority” ingredients: items that will expire within about a week. Users can choose dietary style (e.g. vegetarian, vegan, gluten free), cuisine (e.g. Italian, Asian, Mexican), and maximum cooking time (e.g. under 15, 30, or 45 minutes). After they request a recipe, the backend suggests one based on their pantry, favouring items that are expiring soon. The result includes richer local details such as prep/cook/finish sections, rough ingredient amounts, timing estimates, and nutrition-per-serving estimates. It can also list “missing ingredients” with links to search for them on Deliveroo or Uber Eats so users can order what they don’t have.
 
-**Socials**
+**Share**
 
-The Socials area is a global feed where signed-in users can share recipes they cooked. Each post can include title, caption, ingredients, steps, an optional cooked date, and an optional photo upload. Users can like/unlike posts, and each user can edit or delete only their own posts.
+The Share area is a global feed where signed-in users can share recipes they cooked. Each post can include title, caption, ingredients, steps, an optional cooked date, and an optional photo upload. Users can like/unlike posts, and each user can edit or delete only their own posts.
 
 **Adding and editing items**
 
@@ -29,7 +29,7 @@ Adding an item can be done from Home (Add Item) or after a barcode lookup on Sca
 
 **Technical side**
 
-The frontend is a React app (Create React App) with a top bar that has the WiseBite logo and sections such as Home, Scan, Recipes, Socials, Shopping, Insights, Household, and Profile. Data is stored and computed on a Python Flask backend that exposes REST endpoints for items, stats, barcode lookup, recipe generation, and social posts. Pantry data is kept in memory (with optional sample data for testing). Barcode lookup uses FatSecret when client ID and secret are set, and Open Food Facts otherwise. The camera scanner in the browser uses the html5-qrcode library to read barcodes from the live camera feed.
+The frontend is a React app (Create React App) with a top bar that has the WiseBite logo and sections such as Home, Scan, Recipes, Share, Shopping, Insights, Household, and Profile. Data is stored and computed on a Python Flask backend that exposes REST endpoints for items, stats, barcode lookup, recipe generation, and social posts. Pantry data is kept in memory (with optional sample data for testing). Barcode lookup uses FatSecret when client ID and secret are set, and Open Food Facts otherwise. The camera scanner in the browser uses the html5-qrcode library to read barcodes from the live camera feed.
 
 **Summary**
 

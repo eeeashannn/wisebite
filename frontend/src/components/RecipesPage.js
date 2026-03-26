@@ -8,8 +8,8 @@ function RecipesPage({ items, authToken, onUseRecipeIngredients, onRecipeMissing
 
   return (
     <div className="recipes-page">
-      <h1 className="recipes-page-title">AI Recipe Generator</h1>
-      <p className="recipes-page-subtitle">Get personalized recipes based on your pantry items.</p>
+      <h1 className="recipes-page-title">Advanced Recipe Generator</h1>
+      <p className="recipes-page-subtitle">Get detailed recipes based on your pantry items and preferences.</p>
 
       {priorityItems.length > 0 && (
         <div className="priority-ingredients-box">

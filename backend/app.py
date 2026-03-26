@@ -46,10 +46,13 @@ OUTBOUND_REQUEST_HEADERS = {
 DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROFILE_UPLOAD_DIR = os.path.join(BASE_DIR, "uploads", "profile_photos")
+SOCIAL_UPLOAD_DIR = os.path.join(BASE_DIR, "uploads", "social_photos")
 ALLOWED_PROFILE_IMAGE_EXTS = {"jpg", "jpeg", "png", "webp"}
 MAX_PROFILE_IMAGE_BYTES = 5 * 1024 * 1024
+MAX_SOCIAL_IMAGE_BYTES = 8 * 1024 * 1024
 
 os.makedirs(PROFILE_UPLOAD_DIR, exist_ok=True)
+os.makedirs(SOCIAL_UPLOAD_DIR, exist_ok=True)
 
 # In-memory user store: email -> { "id", "email", "password_hash" }
 USERS = {}
@@ -130,6 +133,9 @@ INVITES = {}
 USER_HOUSEHOLD = {}
 USER_SHARE_MODE = {}
 _NEXT_HOUSEHOLD_ID = 1
+SOCIAL_POSTS = []
+SOCIAL_LIKES = []
+_NEXT_SOCIAL_POST_ID = 1
 
 # Persistence flags (Postgres-backed state snapshot).
 _STATE_PERSISTENCE_READY = False
@@ -146,6 +152,13 @@ def _next_household_id():
     global _NEXT_HOUSEHOLD_ID
     n = _NEXT_HOUSEHOLD_ID
     _NEXT_HOUSEHOLD_ID += 1
+    return n
+
+
+def _next_social_post_id():
+    global _NEXT_SOCIAL_POST_ID
+    n = _NEXT_SOCIAL_POST_ID
+    _NEXT_SOCIAL_POST_ID += 1
     return n
 
 
@@ -178,6 +191,9 @@ def _state_payload():
         "USER_HOUSEHOLD": USER_HOUSEHOLD,
         "USER_SHARE_MODE": USER_SHARE_MODE,
         "_NEXT_HOUSEHOLD_ID": _NEXT_HOUSEHOLD_ID,
+        "SOCIAL_POSTS": SOCIAL_POSTS,
+        "SOCIAL_LIKES": SOCIAL_LIKES,
+        "_NEXT_SOCIAL_POST_ID": _NEXT_SOCIAL_POST_ID,
     }
 
 
@@ -185,6 +201,7 @@ def _apply_state_payload(data):
     global USERS, _NEXT_USER_ID, PANTRY_ITEMS, _NEXT_ID
     global SHOPPING_LIST_ITEMS, ACTIVITY_EVENTS, UNDO_ACTIONS
     global HOUSEHOLDS, INVITES, USER_HOUSEHOLD, USER_SHARE_MODE, _NEXT_HOUSEHOLD_ID
+    global SOCIAL_POSTS, SOCIAL_LIKES, _NEXT_SOCIAL_POST_ID
 
     USERS = data.get("USERS") or {}
     _NEXT_USER_ID = int(data.get("_NEXT_USER_ID") or 1)
@@ -198,6 +215,9 @@ def _apply_state_payload(data):
     USER_HOUSEHOLD = data.get("USER_HOUSEHOLD") or {}
     USER_SHARE_MODE = data.get("USER_SHARE_MODE") or {}
     _NEXT_HOUSEHOLD_ID = int(data.get("_NEXT_HOUSEHOLD_ID") or 1)
+    SOCIAL_POSTS = data.get("SOCIAL_POSTS") or []
+    SOCIAL_LIKES = data.get("SOCIAL_LIKES") or []
+    _NEXT_SOCIAL_POST_ID = int(data.get("_NEXT_SOCIAL_POST_ID") or 1)
 
 
 def _init_state_persistence():
@@ -440,6 +460,8 @@ def home():
             "/auth/login": "POST sign in (email, password)",
             "/profile": "GET/PUT profile details",
             "/profile/photo": "POST upload profile photo",
+            "/social/posts": "GET feed, POST create social recipe post",
+            "/social/posts/photo": "POST upload social post photo",
             "/items": "GET all, POST add",
             "/items/<id>": "GET one, DELETE one",
             "/stats": "GET dashboard statistics",
@@ -508,6 +530,213 @@ def auth_login():
 @app.route('/uploads/profile_photos/<path:filename>', methods=['GET'])
 def serve_profile_photo(filename):
     return send_from_directory(PROFILE_UPLOAD_DIR, filename)
+
+
+@app.route('/uploads/social_photos/<path:filename>', methods=['GET'])
+def serve_social_photo(filename):
+    return send_from_directory(SOCIAL_UPLOAD_DIR, filename)
+
+
+def _normalize_text_lines(value):
+    if isinstance(value, str):
+        parts = [x.strip() for x in value.splitlines()]
+    elif isinstance(value, list):
+        parts = [str(x).strip() for x in value]
+    else:
+        parts = []
+    return [p[:200] for p in parts if p][:20]
+
+
+def _social_like_count(post_id):
+    return len([x for x in SOCIAL_LIKES if x.get("post_id") == post_id])
+
+
+def _serialize_social_post(post, me_user_id=None):
+    author = _get_user_record_by_id(post.get("user_id"))
+    author_profile = _user_to_profile(author) if author else None
+    liked_by_me = any(
+        x for x in SOCIAL_LIKES
+        if x.get("post_id") == post.get("id") and x.get("user_id") == me_user_id
+    )
+    return {
+        "id": post.get("id"),
+        "user_id": post.get("user_id"),
+        "title": post.get("title"),
+        "caption": post.get("caption"),
+        "ingredients": post.get("ingredients", []),
+        "steps": post.get("steps", []),
+        "photo_url": post.get("photo_url"),
+        "cooked_on": post.get("cooked_on"),
+        "created_at": post.get("created_at"),
+        "updated_at": post.get("updated_at"),
+        "author": author_profile or {
+            "id": post.get("user_id"),
+            "name": post.get("author_name") or "User",
+            "email": None,
+            "photo_url": post.get("author_photo_url"),
+        },
+        "like_count": _social_like_count(post.get("id")),
+        "liked_by_me": liked_by_me,
+        "is_owner": me_user_id == post.get("user_id"),
+    }
+
+
+@app.route('/social/posts/photo', methods=['POST'])
+def upload_social_photo():
+    user = _get_current_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+    if "photo" not in request.files:
+        return jsonify({"error": "photo file is required"}), 400
+    photo = request.files["photo"]
+    if not photo or not photo.filename:
+        return jsonify({"error": "photo file is required"}), 400
+    if not _allowed_profile_file(photo.filename):
+        return jsonify({"error": "Unsupported file type. Use JPG, PNG, or WEBP"}), 400
+
+    photo.stream.seek(0, os.SEEK_END)
+    size = photo.stream.tell()
+    photo.stream.seek(0)
+    if size > MAX_SOCIAL_IMAGE_BYTES:
+        return jsonify({"error": "File too large. Max size is 8MB"}), 400
+
+    safe_name = secure_filename(photo.filename)
+    ext = safe_name.rsplit(".", 1)[1].lower()
+    filename = f"{user['user_id']}_{uuid.uuid4().hex[:12]}.{ext}"
+    path = os.path.join(SOCIAL_UPLOAD_DIR, filename)
+    photo.save(path)
+    return jsonify({"photo_url": f"/uploads/social_photos/{filename}"})
+
+
+@app.route('/social/posts', methods=['GET', 'POST'])
+def social_posts():
+    user = _get_current_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    if request.method == "GET":
+        posts = sorted(SOCIAL_POSTS, key=lambda p: p.get("created_at", ""), reverse=True)
+        return jsonify([_serialize_social_post(p, user["user_id"]) for p in posts])
+
+    data = request.get_json() or {}
+    title = (data.get("title") or "").strip()
+    if not title:
+        return jsonify({"error": "title is required"}), 400
+    caption = (data.get("caption") or "").strip()[:1200]
+    ingredients = _normalize_text_lines(data.get("ingredients"))
+    steps = _normalize_text_lines(data.get("steps"))
+    cooked_on = (data.get("cooked_on") or "").strip()[:20] or None
+    photo_url = (data.get("photo_url") or "").strip()[:300] or None
+    if photo_url and not photo_url.startswith("/uploads/social_photos/"):
+        return jsonify({"error": "photo_url must be uploaded via /social/posts/photo"}), 400
+
+    author = _get_user_record_by_id(user["user_id"])
+    now = datetime.utcnow().isoformat() + "Z"
+    post = {
+        "id": _next_social_post_id(),
+        "user_id": user["user_id"],
+        "author_name": (author or {}).get("name"),
+        "author_photo_url": (author or {}).get("photo_url"),
+        "title": title[:120],
+        "caption": caption,
+        "ingredients": ingredients,
+        "steps": steps,
+        "photo_url": photo_url,
+        "cooked_on": cooked_on,
+        "created_at": now,
+        "updated_at": now,
+    }
+    SOCIAL_POSTS.append(post)
+    _log_activity(user["user_id"], "social_post_created", f"Shared recipe: {post['title']}", {"post_id": post["id"]})
+    return jsonify(_serialize_social_post(post, user["user_id"])), 201
+
+
+@app.route('/social/posts/<int:post_id>', methods=['PUT', 'DELETE'])
+def social_post_detail(post_id):
+    user = _get_current_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+    post = next((p for p in SOCIAL_POSTS if p.get("id") == post_id), None)
+    if not post:
+        return jsonify({"error": "Post not found"}), 404
+    if post.get("user_id") != user["user_id"]:
+        return jsonify({"error": "Forbidden"}), 403
+
+    if request.method == "DELETE":
+        SOCIAL_POSTS.remove(post)
+        remaining_likes = [x for x in SOCIAL_LIKES if x.get("post_id") != post_id]
+        SOCIAL_LIKES.clear()
+        SOCIAL_LIKES.extend(remaining_likes)
+        if post.get("photo_url", "").startswith("/uploads/social_photos/"):
+            name = post["photo_url"].rsplit("/", 1)[-1]
+            old_path = os.path.join(SOCIAL_UPLOAD_DIR, name)
+            if os.path.isfile(old_path):
+                try:
+                    os.remove(old_path)
+                except OSError:
+                    pass
+        _log_activity(user["user_id"], "social_post_deleted", f"Deleted recipe: {post['title']}", {"post_id": post_id})
+        return jsonify({"success": True})
+
+    data = request.get_json() or {}
+    title = (data.get("title") or post.get("title") or "").strip()
+    if not title:
+        return jsonify({"error": "title is required"}), 400
+    post["title"] = title[:120]
+    post["caption"] = (data.get("caption") if "caption" in data else post.get("caption") or "").strip()[:1200]
+    if "ingredients" in data:
+        post["ingredients"] = _normalize_text_lines(data.get("ingredients"))
+    if "steps" in data:
+        post["steps"] = _normalize_text_lines(data.get("steps"))
+    if "cooked_on" in data:
+        cooked_on = (data.get("cooked_on") or "").strip()[:20]
+        post["cooked_on"] = cooked_on or None
+    if "photo_url" in data:
+        photo_url = (data.get("photo_url") or "").strip()[:300]
+        if photo_url and not photo_url.startswith("/uploads/social_photos/"):
+            return jsonify({"error": "photo_url must be uploaded via /social/posts/photo"}), 400
+        post["photo_url"] = photo_url or None
+    post["updated_at"] = datetime.utcnow().isoformat() + "Z"
+    _log_activity(user["user_id"], "social_post_updated", f"Updated recipe: {post['title']}", {"post_id": post_id})
+    return jsonify(_serialize_social_post(post, user["user_id"]))
+
+
+@app.route('/social/posts/<int:post_id>/like', methods=['POST'])
+def social_post_like(post_id):
+    user = _get_current_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+    post = next((p for p in SOCIAL_POSTS if p.get("id") == post_id), None)
+    if not post:
+        return jsonify({"error": "Post not found"}), 404
+
+    existing = next(
+        (
+            x for x in SOCIAL_LIKES
+            if x.get("post_id") == post_id and x.get("user_id") == user["user_id"]
+        ),
+        None,
+    )
+    if existing:
+        SOCIAL_LIKES.remove(existing)
+        liked = False
+    else:
+        SOCIAL_LIKES.append(
+            {
+                "post_id": post_id,
+                "user_id": user["user_id"],
+                "created_at": datetime.utcnow().isoformat() + "Z",
+            }
+        )
+        liked = True
+
+    return jsonify(
+        {
+            "post_id": post_id,
+            "liked": liked,
+            "like_count": _social_like_count(post_id),
+        }
+    )
 
 
 @app.route('/profile', methods=['GET', 'PUT'])

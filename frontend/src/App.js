@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import HomePage from "./components/HomePage";
 import ScanPage from "./components/ScanPage";
 import RecipesPage from "./components/RecipesPage";
+import SocialsPage from "./components/SocialsPage";
 import ShoppingListPage from "./components/ShoppingListPage";
 import InsightsPage from "./components/InsightsPage";
 import HouseholdPage from "./components/HouseholdPage";
@@ -28,6 +29,7 @@ const VIEWS = {
   home: "home",
   scan: "scan",
   recipes: "recipes",
+  socials: "socials",
   shopping: "shopping",
   insights: "insights",
   household: "household",
@@ -38,6 +40,7 @@ const MAIN_PAGES = [
   { view: VIEWS.home, label: "Home", Icon: IconHome },
   { view: VIEWS.scan, label: "Scan", Icon: IconCamera },
   { view: VIEWS.recipes, label: "Recipes", Icon: IconChefHat },
+  { view: VIEWS.socials, label: "Socials", Icon: IconUsers },
   { view: VIEWS.shopping, label: "Shopping", Icon: IconBox },
   { view: VIEWS.insights, label: "Insights", Icon: IconChartDown },
   { view: VIEWS.household, label: "Household", Icon: IconUsers },
@@ -493,6 +496,9 @@ function App() {
             onUseRecipeIngredients={handleUseRecipeIngredients}
             onRecipeMissingAdded={fetchShopping}
           />
+        )}
+        {activeView === VIEWS.socials && (
+          <SocialsPage authToken={auth?.token} />
         )}
         {activeView === VIEWS.shopping && (
           <ShoppingListPage

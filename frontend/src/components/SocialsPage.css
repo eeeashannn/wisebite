@@ -1,0 +1,166 @@
+.socials-page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 8px 0 24px;
+}
+
+.socials-title {
+  margin: 0;
+}
+
+.socials-subtitle {
+  margin: 8px 0 18px;
+  color: #5f6368;
+}
+
+.socials-composer {
+  display: grid;
+  gap: 10px;
+  background: #fff;
+  border: 1px solid #e4e7ec;
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 18px;
+}
+
+.socials-composer input,
+.socials-composer textarea {
+  border: 1px solid #d0d5dd;
+  border-radius: 8px;
+  padding: 10px;
+  font: inherit;
+}
+
+.socials-date-label,
+.socials-file-label {
+  display: grid;
+  gap: 6px;
+  font-weight: 600;
+  color: #344054;
+}
+
+.socials-photo-preview {
+  max-width: 220px;
+  border-radius: 8px;
+  border: 1px solid #e4e7ec;
+}
+
+.socials-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.socials-actions button,
+.socials-owner-actions button,
+.socials-like-btn {
+  border: 0;
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.socials-actions button,
+.socials-like-btn {
+  background: #16a34a;
+  color: #fff;
+}
+
+.socials-actions .secondary,
+.socials-owner-actions .secondary {
+  background: #eef2f6;
+  color: #111827;
+}
+
+.socials-owner-actions .danger {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.socials-error {
+  color: #b42318;
+  margin-bottom: 12px;
+}
+
+.socials-loading,
+.socials-empty {
+  padding: 16px;
+  color: #475467;
+  background: #fff;
+  border: 1px solid #e4e7ec;
+  border-radius: 12px;
+}
+
+.socials-feed {
+  display: grid;
+  gap: 12px;
+}
+
+.socials-card {
+  background: #fff;
+  border: 1px solid #e4e7ec;
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.socials-card h3 {
+  margin: 0 0 8px;
+}
+
+.socials-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.socials-author {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.socials-author-photo,
+.socials-author-fallback {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #e5e7eb;
+  color: #111827;
+  font-weight: 700;
+}
+
+.socials-author-name {
+  font-weight: 700;
+}
+
+.socials-meta {
+  color: #667085;
+  font-size: 0.9rem;
+}
+
+.socials-caption {
+  margin: 4px 0 10px;
+}
+
+.socials-post-photo {
+  max-width: 100%;
+  border-radius: 10px;
+  margin: 8px 0 10px;
+}
+
+.socials-owner-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.socials-like-btn {
+  margin-top: 8px;
+}
+
+.socials-like-btn.liked {
+  background: #0f766e;
+}

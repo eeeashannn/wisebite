@@ -19,13 +19,17 @@ The Scan area is for adding products by barcode. Users can turn on the device ca
 
 The Recipes area helps users cook with what they have. It highlights “priority” ingredients: items that will expire within about a week. Users can choose dietary style (e.g. vegetarian, vegan, gluten free), cuisine (e.g. Italian, Asian, Mexican), and maximum cooking time (e.g. under 15, 30, or 45 minutes). After they request a recipe, the backend suggests one based on their pantry, favouring items that are expiring soon. The result shows recipe name, description, ingredients, and steps, and can list “missing ingredients” with links to search for them on Deliveroo or Uber Eats so users can order what they don’t have.
 
+**Socials**
+
+The Socials area is a global feed where signed-in users can share recipes they cooked. Each post can include title, caption, ingredients, steps, an optional cooked date, and an optional photo upload. Users can like/unlike posts, and each user can edit or delete only their own posts.
+
 **Adding and editing items**
 
 Adding an item can be done from Home (Add Item) or after a barcode lookup on Scan. The form asks for name, category, expiry date, quantity, unit, optional notes, and optionally an image URL or barcode. When a barcode is scanned or entered and a product is found, name, category, and image are filled in automatically. Users can still add items manually without scanning.
 
 **Technical side**
 
-The frontend is a React app (Create React App) with a top bar that has the WiseBite logo and sections such as Home, Scan, Recipes, Shopping, Insights, Household, and Profile. Data is stored and computed on a Python Flask backend that exposes REST endpoints for items, stats, barcode lookup, and recipe generation. Pantry data is kept in memory (with optional sample data for testing). Barcode lookup uses FatSecret when client ID and secret are set, and Open Food Facts otherwise. The camera scanner in the browser uses the html5-qrcode library to read barcodes from the live camera feed.
+The frontend is a React app (Create React App) with a top bar that has the WiseBite logo and sections such as Home, Scan, Recipes, Socials, Shopping, Insights, Household, and Profile. Data is stored and computed on a Python Flask backend that exposes REST endpoints for items, stats, barcode lookup, recipe generation, and social posts. Pantry data is kept in memory (with optional sample data for testing). Barcode lookup uses FatSecret when client ID and secret are set, and Open Food Facts otherwise. The camera scanner in the browser uses the html5-qrcode library to read barcodes from the live camera feed.
 
 **Summary**
 

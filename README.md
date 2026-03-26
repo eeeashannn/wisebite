@@ -19,36 +19,22 @@ The Scan area is for adding products by barcode. Users can turn on the device ca
 
 The Recipes area helps users cook with what they have. It highlights “priority” ingredients: items that will expire within about a week. Users can choose dietary style (e.g. vegetarian, vegan, gluten free), cuisine (e.g. Italian, Asian, Mexican), and maximum cooking time (e.g. under 15, 30, or 45 minutes). After they request a recipe, the backend suggests one based on their pantry, favouring items that are expiring soon. The result shows recipe name, description, ingredients, and steps, and can list “missing ingredients” with links to search for them on Deliveroo or Uber Eats so users can order what they don’t have.
 
-**Produce AI**
-
-Produce AI is a separate tool for a quick freshness check. The user uploads or drags a photo of fruit or vegetables (e.g. from the camera or gallery). The app sends the image to the backend, which returns a simple freshness estimate (for example good, fair, or use soon) and a short tip. The app clearly states that this is an AI-based estimate and should not replace the user’s own judgment.
-
 **Adding and editing items**
 
 Adding an item can be done from Home (Add Item) or after a barcode lookup on Scan. The form asks for name, category, expiry date, quantity, unit, optional notes, and optionally an image URL or barcode. When a barcode is scanned or entered and a product is found, name, category, and image are filled in automatically. Users can still add items manually without scanning.
 
 **Technical side**
 
-The frontend is a React app (Create React App) with a top bar that has the WiseBite logo and four sections: Home, Scan, Recipes, Produce AI. Data is stored and computed on a Python Flask backend that exposes REST endpoints for items, stats, barcode lookup, recipe generation, and produce scan. Pantry data is kept in memory (with optional sample data for testing). Barcode lookup uses FatSecret when client ID and secret are set, and Open Food Facts otherwise. The camera scanner in the browser uses the html5-qrcode library to read barcodes from the live camera feed.
+The frontend is a React app (Create React App) with a top bar that has the WiseBite logo and sections such as Home, Scan, Recipes, Shopping, Insights, Household, and Profile. Data is stored and computed on a Python Flask backend that exposes REST endpoints for items, stats, barcode lookup, and recipe generation. Pantry data is kept in memory (with optional sample data for testing). Barcode lookup uses FatSecret when client ID and secret are set, and Open Food Facts otherwise. The camera scanner in the browser uses the html5-qrcode library to read barcodes from the live camera feed.
 
 **Summary**
 
-WiseBite is a single, organised place to see what food you have, what needs using first, and how to use it, with barcode scanning and a simple AI produce check to make logging and using food easier and to reduce waste.
+WiseBite is a single, organised place to see what food you have, what needs using first, and how to use it, with barcode scanning and pantry planning tools to make logging and using food easier and to reduce waste.
 
-## Produce AI setup (real vision model)
+## Data persistence (Postgres)
 
-The `/produce/scan` endpoint now expects a real vision API key.
+By default, in-memory stores are used. To persist pantry/auth/activity data across restarts, set:
 
-### Required backend environment variables
+- `DATABASE_URL` (Postgres connection string; Render Postgres URL works)
 
-- `VISION_API_KEY` (required): API key for an OpenAI-compatible vision endpoint.
-- `VISION_MODEL` (optional, default `gpt-4o-mini`): model used for produce analysis.
-- `VISION_API_URL` (optional, default `https://api.openai.com/v1/chat/completions`): endpoint URL.
-- `VISION_TIMEOUT_SECS` (optional, default `25`): outbound request timeout.
-- `VISION_MAX_IMAGE_BYTES` (optional, default `8388608`): max accepted base64-decoded image size.
-- `VISION_UNCERTAIN_CONFIDENCE` (optional, default `0.55`): below this confidence the response is marked as uncertain.
-
-### Notes for Render
-
-Set these environment variables in the Render backend service and redeploy.  
-If `VISION_API_KEY` is missing, `/produce/scan` returns an actionable error (`success: false`).
+When `DATABASE_URL` is set, the backend creates/uses an `app_state` table and stores a JSON snapshot after successful `POST`/`PUT`/`DELETE` requests.

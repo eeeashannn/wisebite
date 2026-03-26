@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from "react";
 import HomePage from "./components/HomePage";
 import ScanPage from "./components/ScanPage";
 import RecipesPage from "./components/RecipesPage";
-import ProduceAIPage from "./components/ProduceAIPage";
 import ShoppingListPage from "./components/ShoppingListPage";
 import InsightsPage from "./components/InsightsPage";
 import HouseholdPage from "./components/HouseholdPage";
@@ -16,7 +15,6 @@ import {
   IconHome,
   IconCamera,
   IconChefHat,
-  IconApple,
   IconBox,
   IconChartDown,
   IconUsers,
@@ -30,7 +28,6 @@ const VIEWS = {
   home: "home",
   scan: "scan",
   recipes: "recipes",
-  produce: "produce",
   shopping: "shopping",
   insights: "insights",
   household: "household",
@@ -41,7 +38,6 @@ const MAIN_PAGES = [
   { view: VIEWS.home, label: "Home", Icon: IconHome },
   { view: VIEWS.scan, label: "Scan", Icon: IconCamera },
   { view: VIEWS.recipes, label: "Recipes", Icon: IconChefHat },
-  { view: VIEWS.produce, label: "Produce AI", Icon: IconApple },
   { view: VIEWS.shopping, label: "Shopping", Icon: IconBox },
   { view: VIEWS.insights, label: "Insights", Icon: IconChartDown },
   { view: VIEWS.household, label: "Household", Icon: IconUsers },
@@ -497,9 +493,6 @@ function App() {
             onUseRecipeIngredients={handleUseRecipeIngredients}
             onRecipeMissingAdded={fetchShopping}
           />
-        )}
-        {activeView === VIEWS.produce && (
-          <ProduceAIPage />
         )}
         {activeView === VIEWS.shopping && (
           <ShoppingListPage

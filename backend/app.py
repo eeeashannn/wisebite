@@ -43,12 +43,7 @@ OUTBOUND_REQUEST_HEADERS = {
     "User-Agent": _HTTP_USER_AGENT,
     "Accept": "application/json",
 }
-VISION_API_KEY = os.environ.get("VISION_API_KEY", "").strip()
-VISION_MODEL = os.environ.get("VISION_MODEL", "gpt-4o-mini").strip() or "gpt-4o-mini"
-VISION_API_URL = os.environ.get("VISION_API_URL", "https://api.openai.com/v1/chat/completions").strip()
-VISION_TIMEOUT_SECS = float(os.environ.get("VISION_TIMEOUT_SECS", "25"))
-VISION_MAX_IMAGE_BYTES = int(os.environ.get("VISION_MAX_IMAGE_BYTES", str(8 * 1024 * 1024)))
-VISION_UNCERTAIN_CONFIDENCE = float(os.environ.get("VISION_UNCERTAIN_CONFIDENCE", "0.55"))
+DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROFILE_UPLOAD_DIR = os.path.join(BASE_DIR, "uploads", "profile_photos")
 ALLOWED_PROFILE_IMAGE_EXTS = {"jpg", "jpeg", "png", "webp"}
@@ -136,6 +131,10 @@ USER_HOUSEHOLD = {}
 USER_SHARE_MODE = {}
 _NEXT_HOUSEHOLD_ID = 1
 
+# Persistence flags (Postgres-backed state snapshot).
+_STATE_PERSISTENCE_READY = False
+_STATE_PERSISTENCE_WARNED = False
+
 def _next_id():
     global _NEXT_ID
     n = _NEXT_ID
@@ -148,6 +147,134 @@ def _next_household_id():
     n = _NEXT_HOUSEHOLD_ID
     _NEXT_HOUSEHOLD_ID += 1
     return n
+
+
+def _db_connect():
+    if not DATABASE_URL:
+        return None
+    try:
+        import psycopg2  # lazy import so local dev still starts without DB package
+        db_url = DATABASE_URL
+        if db_url.startswith("postgres://"):
+            db_url = "postgresql://" + db_url[len("postgres://"):]
+        conn = psycopg2.connect(db_url)
+        conn.autocommit = True
+        return conn
+    except Exception:
+        return None
+
+
+def _state_payload():
+    return {
+        "USERS": USERS,
+        "_NEXT_USER_ID": _NEXT_USER_ID,
+        "PANTRY_ITEMS": PANTRY_ITEMS,
+        "_NEXT_ID": _NEXT_ID,
+        "SHOPPING_LIST_ITEMS": SHOPPING_LIST_ITEMS,
+        "ACTIVITY_EVENTS": ACTIVITY_EVENTS,
+        "UNDO_ACTIONS": UNDO_ACTIONS,
+        "HOUSEHOLDS": HOUSEHOLDS,
+        "INVITES": INVITES,
+        "USER_HOUSEHOLD": USER_HOUSEHOLD,
+        "USER_SHARE_MODE": USER_SHARE_MODE,
+        "_NEXT_HOUSEHOLD_ID": _NEXT_HOUSEHOLD_ID,
+    }
+
+
+def _apply_state_payload(data):
+    global USERS, _NEXT_USER_ID, PANTRY_ITEMS, _NEXT_ID
+    global SHOPPING_LIST_ITEMS, ACTIVITY_EVENTS, UNDO_ACTIONS
+    global HOUSEHOLDS, INVITES, USER_HOUSEHOLD, USER_SHARE_MODE, _NEXT_HOUSEHOLD_ID
+
+    USERS = data.get("USERS") or {}
+    _NEXT_USER_ID = int(data.get("_NEXT_USER_ID") or 1)
+    PANTRY_ITEMS = data.get("PANTRY_ITEMS") or []
+    _NEXT_ID = int(data.get("_NEXT_ID") or 1)
+    SHOPPING_LIST_ITEMS = data.get("SHOPPING_LIST_ITEMS") or []
+    ACTIVITY_EVENTS = data.get("ACTIVITY_EVENTS") or []
+    UNDO_ACTIONS = data.get("UNDO_ACTIONS") or {}
+    HOUSEHOLDS = data.get("HOUSEHOLDS") or {}
+    INVITES = data.get("INVITES") or {}
+    USER_HOUSEHOLD = data.get("USER_HOUSEHOLD") or {}
+    USER_SHARE_MODE = data.get("USER_SHARE_MODE") or {}
+    _NEXT_HOUSEHOLD_ID = int(data.get("_NEXT_HOUSEHOLD_ID") or 1)
+
+
+def _init_state_persistence():
+    global _STATE_PERSISTENCE_READY
+    conn = _db_connect()
+    if not conn:
+        _STATE_PERSISTENCE_READY = False
+        return
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS app_state (
+                    id INTEGER PRIMARY KEY,
+                    payload JSONB NOT NULL,
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                )
+                """
+            )
+            cur.execute("SELECT payload FROM app_state WHERE id = 1")
+            row = cur.fetchone()
+            if row and row[0]:
+                payload = row[0]
+                if isinstance(payload, str):
+                    payload = json.loads(payload)
+                if isinstance(payload, dict):
+                    _apply_state_payload(payload)
+            else:
+                cur.execute(
+                    """
+                    INSERT INTO app_state (id, payload, updated_at)
+                    VALUES (1, %s::jsonb, NOW())
+                    ON CONFLICT (id) DO NOTHING
+                    """,
+                    (json.dumps(_state_payload()),),
+                )
+        _STATE_PERSISTENCE_READY = True
+    except Exception:
+        _STATE_PERSISTENCE_READY = False
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+
+def _save_state_snapshot():
+    global _STATE_PERSISTENCE_WARNED
+    if not _STATE_PERSISTENCE_READY:
+        if not _STATE_PERSISTENCE_WARNED and DATABASE_URL:
+            _STATE_PERSISTENCE_WARNED = True
+            print("Warning: Postgres state persistence unavailable; continuing in-memory.")
+        return
+    conn = _db_connect()
+    if not conn:
+        return
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO app_state (id, payload, updated_at)
+                VALUES (1, %s::jsonb, NOW())
+                ON CONFLICT (id)
+                DO UPDATE SET payload = EXCLUDED.payload, updated_at = NOW()
+                """,
+                (json.dumps(_state_payload()),),
+            )
+    except Exception:
+        pass
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+
+_init_state_persistence()
 
 
 def _today_str():
@@ -297,6 +424,9 @@ def after_request(response):
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
     response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
     response.headers["Access-Control-Max-Age"] = "86400"
+    # Persist state after successful mutations so data survives restarts/sleep.
+    if request.method in ("POST", "PUT", "DELETE") and 200 <= response.status_code < 400:
+        _save_state_snapshot()
     return response
 
 
@@ -315,7 +445,6 @@ def home():
             "/stats": "GET dashboard statistics",
             "/barcode/<code>": "GET product by barcode (FatSecret if configured, else Open Food Facts)",
             "/recipes/generate": "POST generate recipe",
-            "/produce/scan": "POST AI produce freshness (estimate)",
         }
     })
 
@@ -1051,152 +1180,6 @@ def generate_recipe_from_items(items, items_by_category, dietary, max_time_min, 
         "cuisine_note": cuisine or None,
         "max_time_minutes": max_time_min,
     }
-
-
-# ---------- AI Produce Scanner (estimate with disclaimer) ----------
-def _clean_json_block(text):
-    s = (text or "").strip()
-    if s.startswith("```"):
-        s = re.sub(r"^```(?:json)?\s*", "", s, flags=re.IGNORECASE)
-        s = re.sub(r"\s*```$", "", s)
-    return s.strip()
-
-
-def _extract_first_json_object(text):
-    cleaned = _clean_json_block(text)
-    try:
-        return json.loads(cleaned)
-    except Exception:
-        pass
-    start = cleaned.find("{")
-    end = cleaned.rfind("}")
-    if start == -1 or end == -1 or end <= start:
-        raise ValueError("No JSON object found in model output.")
-    return json.loads(cleaned[start:end + 1])
-
-
-def _normalize_freshness(value):
-    raw = (value or "").strip().lower()
-    if raw in ("good", "fresh"):
-        return "good"
-    if raw in ("fair",):
-        return "fair"
-    if raw in ("use_soon", "use soon", "soon", "poor"):
-        return "use_soon"
-    return "fair"
-
-
-def _vision_infer_produce(base64_image):
-    prompt = (
-        "You are a produce freshness assistant. "
-        "Analyze the image and return ONLY compact JSON with keys: "
-        "detected_produce (string), estimate (good|fair|use_soon), confidence (0..1), "
-        "risk_level (low|medium|high), signals (array of 2-4 short strings), "
-        "message (short sentence), suggestion (short sentence). "
-        "If produce type is uncertain, set detected_produce to best guess and confidence lower."
-    )
-    payload = {
-        "model": VISION_MODEL,
-        "temperature": 0.2,
-        "messages": [
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": prompt},
-                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}},
-                ],
-            }
-        ],
-        "max_tokens": 220,
-    }
-    headers = {
-        "Authorization": f"Bearer {VISION_API_KEY}",
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-    }
-    res = requests.post(VISION_API_URL, headers=headers, json=payload, timeout=VISION_TIMEOUT_SECS)
-    if res.status_code >= 400:
-        raise RuntimeError(f"Vision API error ({res.status_code}): {res.text[:300]}")
-    data = res.json()
-    content = (((data.get("choices") or [{}])[0].get("message") or {}).get("content") or "").strip()
-    return _extract_first_json_object(content)
-
-
-@app.route('/produce/scan', methods=['POST'])
-def produce_scan():
-    data = request.get_json() or {}
-    image_base64 = (data.get('image_base64') or "").strip()
-    image_url = (data.get('image_url') or "").strip()
-    if not image_base64 and not image_url:
-        return jsonify({"error": "image_base64 or image_url required"}), 400
-    if not VISION_API_KEY:
-        return jsonify({
-            "success": False,
-            "error": "VISION_API_KEY is not configured on the server.",
-        }), 503
-    if image_url:
-        return jsonify({
-            "success": False,
-            "error": "image_url mode is not enabled. Send image_base64.",
-        }), 400
-
-    try:
-        decoded = base64.b64decode(image_base64, validate=True)
-    except Exception:
-        return jsonify({"success": False, "error": "Invalid image_base64 encoding."}), 400
-    if len(decoded) > VISION_MAX_IMAGE_BYTES:
-        return jsonify({
-            "success": False,
-            "error": f"Image too large. Max size is {VISION_MAX_IMAGE_BYTES // (1024 * 1024)}MB.",
-        }), 400
-
-    try:
-        raw = _vision_infer_produce(image_base64)
-        estimate = _normalize_freshness(raw.get("estimate"))
-        confidence = raw.get("confidence")
-        try:
-            confidence = float(confidence)
-        except Exception:
-            confidence = 0.5
-        confidence = max(0.0, min(1.0, confidence))
-
-        detected = str(raw.get("detected_produce") or "Unknown produce").strip()[:80]
-        risk = str(raw.get("risk_level") or "").strip().lower()
-        if risk not in ("low", "medium", "high"):
-            risk = "low" if estimate == "good" else ("medium" if estimate == "fair" else "high")
-        signals = raw.get("signals")
-        if not isinstance(signals, list):
-            signals = []
-        signals = [str(s).strip()[:60] for s in signals if str(s).strip()][:4]
-        if not signals:
-            signals = ["color_consistency", "surface_texture"]
-
-        uncertain = confidence < VISION_UNCERTAIN_CONFIDENCE
-        message = str(raw.get("message") or "").strip()
-        if not message:
-            message = "AI-based estimate only; may not be 100% accurate."
-        suggestion = str(raw.get("suggestion") or "").strip()
-        if not suggestion:
-            suggestion = "Store in fridge and use within a few days." if estimate != "good" else "Product appears fresh. Use within normal shelf life."
-        if uncertain:
-            message = f"{message} Confidence is low; treat result as a rough guess."
-
-        return jsonify({
-            "success": True,
-            "estimate": estimate,
-            "message": message,
-            "suggestion": suggestion,
-            "detected_produce": detected,
-            "confidence": round(confidence, 2),
-            "risk_level": risk,
-            "signals": signals,
-            "uncertain": uncertain,
-        })
-    except Exception:
-        return jsonify({
-            "success": False,
-            "error": "Vision analysis failed. Try a clearer, well-lit close-up image.",
-        }), 502
 
 
 @app.after_request

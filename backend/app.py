@@ -564,6 +564,20 @@ def _absolute_url(path):
     return f"{base}{path}"
 
 
+def _normalize_social_photo_url(value):
+    raw = (value or "").strip()
+    if not raw:
+        return None
+    if raw.startswith("/uploads/social_photos/"):
+        return raw[:300]
+    if raw.startswith("http://") or raw.startswith("https://"):
+        marker = "/uploads/social_photos/"
+        idx = raw.find(marker)
+        if idx != -1:
+            return raw[idx:idx + 300]
+    return None
+
+
 def _serialize_social_post(post, me_user_id=None):
     author = _get_user_record_by_id(post.get("user_id"))
     author_profile = _user_to_profile(author) if author else None
@@ -641,8 +655,8 @@ def social_posts():
     ingredients = _normalize_text_lines(data.get("ingredients"))
     steps = _normalize_text_lines(data.get("steps"))
     cooked_on = (data.get("cooked_on") or "").strip()[:20] or None
-    photo_url = (data.get("photo_url") or "").strip()[:300] or None
-    if photo_url and not photo_url.startswith("/uploads/social_photos/"):
+    photo_url = _normalize_social_photo_url(data.get("photo_url"))
+    if (data.get("photo_url") or "").strip() and not photo_url:
         return jsonify({"error": "photo_url must be uploaded via /social/posts/photo"}), 400
 
     author = _get_user_record_by_id(user["user_id"])
@@ -707,8 +721,8 @@ def social_post_detail(post_id):
         cooked_on = (data.get("cooked_on") or "").strip()[:20]
         post["cooked_on"] = cooked_on or None
     if "photo_url" in data:
-        photo_url = (data.get("photo_url") or "").strip()[:300]
-        if photo_url and not photo_url.startswith("/uploads/social_photos/"):
+        photo_url = _normalize_social_photo_url(data.get("photo_url"))
+        if (data.get("photo_url") or "").strip() and not photo_url:
             return jsonify({"error": "photo_url must be uploaded via /social/posts/photo"}), 400
         post["photo_url"] = photo_url or None
     post["updated_at"] = datetime.utcnow().isoformat() + "Z"

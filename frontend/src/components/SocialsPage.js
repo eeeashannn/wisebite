@@ -110,7 +110,7 @@ function SocialsPage({ authToken }) {
       if (!res.ok) {
         throw new Error(data?.error || "Upload failed");
       }
-      setForm((prev) => ({ ...prev, photo_url: data.photo_url_absolute || data.photo_url || "" }));
+      setForm((prev) => ({ ...prev, photo_url: data.photo_url || data.photo_url_absolute || "" }));
     } catch (err) {
       setError(err.message || "Upload failed");
     }

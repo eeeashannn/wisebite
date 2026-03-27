@@ -11,8 +11,13 @@ import json
 import jwt
 import requests
 
+
+# =============================================================================
+# APP SETUP & CONFIGURATION
+# =============================================================================
+
 app = Flask(__name__)
-# Allow frontend origin for CORS; preflight (OPTIONS) must succeed for POST with JSON
+
 CORS(
     app,
     resources={
@@ -34,7 +39,6 @@ CORS(
 SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-change-in-production")
 JWT_EXPIRY_DAYS = 7
 
-# Open Food Facts (and some other APIs) return 403 for the default "python-requests/..." User-Agent.
 _HTTP_USER_AGENT = os.environ.get(
     "WISEBITE_HTTP_USER_AGENT",
     "WiseBite/1.0 (https://github.com/wisebite; educational pantry app)",
@@ -54,9 +58,35 @@ MAX_SOCIAL_IMAGE_BYTES = 8 * 1024 * 1024
 os.makedirs(PROFILE_UPLOAD_DIR, exist_ok=True)
 os.makedirs(SOCIAL_UPLOAD_DIR, exist_ok=True)
 
-# In-memory user store: email -> { "id", "email", "password_hash" }
+FATSECRET_CLIENT_ID = os.environ.get("FATSECRET_CLIENT_ID", "").strip()
+FATSECRET_CLIENT_SECRET = os.environ.get("FATSECRET_CLIENT_SECRET", "").strip()
+_FATSECRET_TOKEN = None
+
+
+# =============================================================================
+# IN-MEMORY DATA STORES
+# =============================================================================
+
 USERS = {}
 _NEXT_USER_ID = 1
+
+PANTRY_ITEMS = []
+_NEXT_ID = 1
+
+SHOPPING_LIST_ITEMS = []
+ACTIVITY_EVENTS = []
+UNDO_ACTIONS = {}
+
+HOUSEHOLDS = {}
+INVITES = {}
+USER_HOUSEHOLD = {}
+USER_SHARE_MODE = {}
+_NEXT_HOUSEHOLD_ID = 1
+
+SOCIAL_POSTS = []
+SOCIAL_LIKES = []
+_NEXT_SOCIAL_POST_ID = 1
+
 
 def _next_user_id():
     global _NEXT_USER_ID
@@ -64,122 +94,6 @@ def _next_user_id():
     _NEXT_USER_ID += 1
     return n
 
-def _make_token(user_id, email):
-    payload = {
-        "user_id": user_id,
-        "email": email,
-        "exp": datetime.utcnow() + timedelta(days=JWT_EXPIRY_DAYS),
-    }
-    return jwt.encode(payload, SECRET_KEY, algorithm="HS256")
-
-
-def _default_name_from_email(email):
-    local = (email or "").split("@")[0].strip()
-    if not local:
-        return "User"
-    return local.replace(".", " ").replace("_", " ").title()
-
-
-def _user_to_profile(user_obj):
-    if not user_obj:
-        return None
-    return {
-        "id": user_obj.get("id"),
-        "email": user_obj.get("email"),
-        "name": user_obj.get("name") or _default_name_from_email(user_obj.get("email")),
-        "photo_url": user_obj.get("photo_url"),
-    }
-
-
-def _get_user_record_by_id(user_id):
-    return next((u for u in USERS.values() if u.get("id") == user_id), None)
-
-
-def _ensure_user_record_for_claims(user_claims):
-    """
-    Best-effort self-heal for stale sessions when USERS in-memory state drifts.
-    If a JWT is valid but user record is missing, recreate a minimal record so
-    profile/social endpoints remain usable without forcing full account reset.
-    """
-    global _NEXT_USER_ID
-    if not user_claims:
-        return None
-    user_id = user_claims.get("user_id")
-    email = (user_claims.get("email") or "").strip().lower()
-    if not user_id or not email:
-        return None
-
-    existing_by_id = _get_user_record_by_id(user_id)
-    if existing_by_id:
-        if not existing_by_id.get("email"):
-            existing_by_id["email"] = email
-        return existing_by_id
-
-    existing_by_email = USERS.get(email)
-    if existing_by_email:
-        existing_by_email["id"] = user_id
-        return existing_by_email
-
-    # Recreate minimal account record; keep login disabled unless password reset/signup flow updates it.
-    USERS[email] = {
-        "id": user_id,
-        "email": email,
-        "name": _default_name_from_email(email),
-        "photo_url": None,
-        "password_hash": generate_password_hash(uuid.uuid4().hex),
-    }
-    try:
-        _NEXT_USER_ID = max(int(_NEXT_USER_ID), int(user_id) + 1)
-    except Exception:
-        pass
-    return USERS[email]
-
-
-def _allowed_profile_file(filename):
-    if not filename or "." not in filename:
-        return False
-    ext = filename.rsplit(".", 1)[1].lower()
-    return ext in ALLOWED_PROFILE_IMAGE_EXTS
-
-
-def _get_current_user():
-    """Read Authorization: Bearer <token>, decode JWT; return {"user_id", "email"} or None."""
-    auth = request.headers.get("Authorization")
-    if not auth or not auth.startswith("Bearer "):
-        return None
-    token = auth[7:].strip()
-    if not token:
-        return None
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-        return {"user_id": payload.get("user_id"), "email": payload.get("email")}
-    except (jwt.InvalidTokenError, jwt.ExpiredSignatureError):
-        return None
-
-
-# Optional: FatSecret Platform API (barcode + nutrition). If set, used first; else Open Food Facts.
-FATSECRET_CLIENT_ID = os.environ.get("FATSECRET_CLIENT_ID", "").strip()
-FATSECRET_CLIENT_SECRET = os.environ.get("FATSECRET_CLIENT_SECRET", "").strip()
-_FATSECRET_TOKEN = None
-
-# In-memory pantry storage; each item has user_id for per-user inventory
-PANTRY_ITEMS = []
-_NEXT_ID = 1
-SHOPPING_LIST_ITEMS = []
-ACTIVITY_EVENTS = []
-UNDO_ACTIONS = {}
-HOUSEHOLDS = {}
-INVITES = {}
-USER_HOUSEHOLD = {}
-USER_SHARE_MODE = {}
-_NEXT_HOUSEHOLD_ID = 1
-SOCIAL_POSTS = []
-SOCIAL_LIKES = []
-_NEXT_SOCIAL_POST_ID = 1
-
-# Persistence flags (Postgres-backed state snapshot).
-_STATE_PERSISTENCE_READY = False
-_STATE_PERSISTENCE_WARNED = False
 
 def _next_id():
     global _NEXT_ID
@@ -202,11 +116,19 @@ def _next_social_post_id():
     return n
 
 
+# =============================================================================
+# DATA PERSISTENCE (PostgreSQL)
+# =============================================================================
+
+_STATE_PERSISTENCE_READY = False
+_STATE_PERSISTENCE_WARNED = False
+
+
 def _db_connect():
     if not DATABASE_URL:
         return None
     try:
-        import psycopg2  # lazy import so local dev still starts without DB package
+        import psycopg2
         db_url = DATABASE_URL
         if db_url.startswith("postgres://"):
             db_url = "postgresql://" + db_url[len("postgres://"):]
@@ -337,8 +259,27 @@ def _save_state_snapshot():
 _init_state_persistence()
 
 
+# =============================================================================
+# SHARED HELPERS
+# =============================================================================
+
 def _today_str():
     return datetime.now().strftime("%Y-%m-%d")
+
+
+def _get_current_user():
+    """Read Authorization: Bearer <token>, decode JWT; return {"user_id", "email"} or None."""
+    auth = request.headers.get("Authorization")
+    if not auth or not auth.startswith("Bearer "):
+        return None
+    token = auth[7:].strip()
+    if not token:
+        return None
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        return {"user_id": payload.get("user_id"), "email": payload.get("email")}
+    except (jwt.InvalidTokenError, jwt.ExpiredSignatureError):
+        return None
 
 
 def _get_scope_user_ids(user_id):
@@ -364,151 +305,98 @@ def _log_activity(actor_user_id, event_type, message, payload=None):
     })
 
 
-def _compute_reminders(items):
-    today = datetime.now().date()
-    reminders = {"expired": [], "today": [], "soon": []}
-    for item in items:
-        try:
-            expiry_date = datetime.strptime(item["expiry"], "%Y-%m-%d").date()
-        except (ValueError, KeyError):
-            continue
-        days = (expiry_date - today).days
-        row = {"id": item["id"], "name": item["name"], "expiry": item["expiry"], "days_remaining": days}
-        if days < 0:
-            reminders["expired"].append(row)
-        elif days == 0:
-            reminders["today"].append(row)
-        elif days <= 2:
-            reminders["soon"].append(row)
-    return reminders
+def _allowed_profile_file(filename):
+    if not filename or "." not in filename:
+        return False
+    ext = filename.rsplit(".", 1)[1].lower()
+    return ext in ALLOWED_PROFILE_IMAGE_EXTS
 
 
-def _compute_reorder_suggestions(user_id):
-    # Simple heuristic: frequently consumed items with low remaining quantity.
-    consumed_counts = {}
-    scope_user_ids = _get_scope_user_ids(user_id)
-    for ev in ACTIVITY_EVENTS:
-        if ev.get("type") != "item_consumed" or ev.get("user_id") not in scope_user_ids:
-            continue
-        name = (ev.get("payload", {}).get("item_name") or "").strip()
-        if not name:
-            continue
-        consumed_counts[name] = consumed_counts.get(name, 0) + 1
-
-    scoped_items = [i for i in PANTRY_ITEMS if i.get("user_id") in scope_user_ids]
-    suggestions = []
-    for name, count in sorted(consumed_counts.items(), key=lambda x: x[1], reverse=True):
-        matching = [i for i in scoped_items if (i.get("name") or "").lower() == name.lower()]
-        qty = sum((float(i.get("quantity", 0) or 0) for i in matching))
-        if count >= 2 and qty <= 1:
-            suggestions.append({"name": name, "reason": "Frequently used and running low", "consumed_count": count})
-    return suggestions[:5]
+def _same_user_id(a, b):
+    return str(a) == str(b)
 
 
-def _compute_weekly_insights(user_id):
-    scope_user_ids = _get_scope_user_ids(user_id)
-    since = datetime.utcnow() - timedelta(days=7)
-    recent = []
-    for ev in ACTIVITY_EVENTS:
-        if ev.get("user_id") not in scope_user_ids:
-            continue
-        created_at = ev.get("created_at", "").replace("Z", "")
-        try:
-            stamp = datetime.fromisoformat(created_at)
-        except ValueError:
-            continue
-        if stamp >= since:
-            recent.append(ev)
+def _absolute_url(path):
+    if not path:
+        return None
+    if str(path).startswith("http"):
+        return path
+    base = request.url_root.rstrip("/")
+    return f"{base}{path}"
 
-    consumed = len([e for e in recent if e.get("type") == "item_consumed"])
-    expired = len([e for e in recent if e.get("type") == "item_expired_removed"])
-    saved = len([e for e in recent if e.get("type") == "item_consumed_before_expiry"])
 
-    waste_by_category = {}
-    for e in recent:
-        if e.get("type") != "item_expired_removed":
-            continue
-        cat = e.get("payload", {}).get("category") or "Other"
-        waste_by_category[cat] = waste_by_category.get(cat, 0) + 1
+# =============================================================================
+# FEATURE 1: AUTHENTICATION
+# =============================================================================
 
-    top_wasted = [{"category": k, "count": v} for k, v in sorted(waste_by_category.items(), key=lambda x: x[1], reverse=True)[:5]]
+def _make_token(user_id, email):
+    payload = {
+        "user_id": user_id,
+        "email": email,
+        "exp": datetime.utcnow() + timedelta(days=JWT_EXPIRY_DAYS),
+    }
+    return jwt.encode(payload, SECRET_KEY, algorithm="HS256")
+
+
+def _default_name_from_email(email):
+    local = (email or "").split("@")[0].strip()
+    if not local:
+        return "User"
+    return local.replace(".", " ").replace("_", " ").title()
+
+
+def _user_to_profile(user_obj):
+    if not user_obj:
+        return None
     return {
-        "consumed_before_expiry": saved,
-        "expired_count": expired,
-        "consumed_count": consumed,
-        "saved_items_this_week": saved,
-        "top_wasted_categories": top_wasted,
+        "id": user_obj.get("id"),
+        "email": user_obj.get("email"),
+        "name": user_obj.get("name") or _default_name_from_email(user_obj.get("email")),
+        "photo_url": user_obj.get("photo_url"),
     }
 
 
-def _compute_stats(items):
-    today = datetime.now().date()
-    total = len(items)
-    fresh = expiring_soon = expired = 0
-    for item in items:
-        try:
-            expiry_date = datetime.strptime(item["expiry"], "%Y-%m-%d").date()
-        except (ValueError, KeyError):
-            continue
-        days = (expiry_date - today).days
-        if days < 0:
-            expired += 1
-        elif days <= 3:
-            expiring_soon += 1
-        else:
-            fresh += 1
-    return {
-        "total_items": total,
-        "fresh": fresh,
-        "expiring_soon": expiring_soon,
-        "expired": expired,
+def _get_user_record_by_id(user_id):
+    return next((u for u in USERS.values() if u.get("id") == user_id), None)
+
+
+def _ensure_user_record_for_claims(user_claims):
+    """
+    Best-effort self-heal for stale sessions when USERS in-memory state drifts.
+    If a JWT is valid but user record is missing, recreate a minimal record so
+    profile/social endpoints remain usable without forcing full account reset.
+    """
+    global _NEXT_USER_ID
+    if not user_claims:
+        return None
+    user_id = user_claims.get("user_id")
+    email = (user_claims.get("email") or "").strip().lower()
+    if not user_id or not email:
+        return None
+
+    existing_by_id = _get_user_record_by_id(user_id)
+    if existing_by_id:
+        if not existing_by_id.get("email"):
+            existing_by_id["email"] = email
+        return existing_by_id
+
+    existing_by_email = USERS.get(email)
+    if existing_by_email:
+        existing_by_email["id"] = user_id
+        return existing_by_email
+
+    USERS[email] = {
+        "id": user_id,
+        "email": email,
+        "name": _default_name_from_email(email),
+        "photo_url": None,
+        "password_hash": generate_password_hash(uuid.uuid4().hex),
     }
-
-
-_ALLOWED_CORS_ORIGINS = frozenset(
-    {
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-    }
-)
-
-
-@app.after_request
-def after_request(response):
-    """Ensure CORS headers on every response so preflight (OPTIONS) succeeds."""
-    origin = request.origin if request.origin else "*"
-    if origin in _ALLOWED_CORS_ORIGINS:
-        response.headers["Access-Control-Allow-Origin"] = origin
-    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
-    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
-    response.headers["Access-Control-Max-Age"] = "86400"
-    # Persist state after successful mutations so data survives restarts/sleep.
-    if request.method in ("POST", "PUT", "DELETE") and 200 <= response.status_code < 400:
-        _save_state_snapshot()
-    return response
-
-
-@app.route('/')
-def home():
-    return jsonify({
-        "message": "Welcome to WiseBite API!",
-        "version": "1.0.0",
-        "endpoints": {
-            "/auth/signup": "POST sign up (email, password)",
-            "/auth/login": "POST sign in (email, password)",
-            "/profile": "GET/PUT profile details",
-            "/profile/photo": "POST upload profile photo",
-            "/social/posts": "GET feed, POST create social recipe post",
-            "/social/posts/photo": "POST upload social post photo",
-            "/items": "GET all, POST add",
-            "/items/<id>": "GET one, DELETE one",
-            "/stats": "GET dashboard statistics",
-            "/barcode/<code>": "GET product by barcode (FatSecret if configured, else Open Food Facts)",
-            "/recipes/generate": "POST generate recipe",
-        }
-    })
+    try:
+        _NEXT_USER_ID = max(int(_NEXT_USER_ID), int(user_id) + 1)
+    except Exception:
+        pass
+    return USERS[email]
 
 
 @app.route('/auth/signup', methods=['OPTIONS', 'POST'])
@@ -567,246 +455,9 @@ def auth_login():
     })
 
 
-@app.route('/uploads/profile_photos/<path:filename>', methods=['GET'])
-def serve_profile_photo(filename):
-    return send_from_directory(PROFILE_UPLOAD_DIR, filename)
-
-
-@app.route('/uploads/social_photos/<path:filename>', methods=['GET'])
-def serve_social_photo(filename):
-    return send_from_directory(SOCIAL_UPLOAD_DIR, filename)
-
-
-def _normalize_text_lines(value):
-    if isinstance(value, str):
-        parts = [x.strip() for x in value.splitlines()]
-    elif isinstance(value, list):
-        parts = [str(x).strip() for x in value]
-    else:
-        parts = []
-    return [p[:200] for p in parts if p][:20]
-
-
-def _social_like_count(post_id):
-    return len([x for x in SOCIAL_LIKES if x.get("post_id") == post_id])
-
-
-def _same_user_id(a, b):
-    return str(a) == str(b)
-
-
-def _absolute_url(path):
-    if not path:
-        return None
-    if str(path).startswith("http"):
-        return path
-    base = request.url_root.rstrip("/")
-    return f"{base}{path}"
-
-
-def _normalize_social_photo_url(value):
-    raw = (value or "").strip()
-    if not raw:
-        return None
-    if raw.startswith("/uploads/social_photos/"):
-        return raw[:300]
-    if raw.startswith("http://") or raw.startswith("https://"):
-        marker = "/uploads/social_photos/"
-        idx = raw.find(marker)
-        if idx != -1:
-            return raw[idx:idx + 300]
-    return None
-
-
-def _serialize_social_post(post, me_user_id=None):
-    author = _get_user_record_by_id(post.get("user_id"))
-    author_profile = _user_to_profile(author) if author else None
-    liked_by_me = any(
-        x for x in SOCIAL_LIKES
-        if x.get("post_id") == post.get("id") and x.get("user_id") == me_user_id
-    )
-    return {
-        "id": post.get("id"),
-        "user_id": post.get("user_id"),
-        "title": post.get("title"),
-        "caption": post.get("caption"),
-        "ingredients": post.get("ingredients", []),
-        "steps": post.get("steps", []),
-        "photo_url": post.get("photo_url"),
-        "photo_url_absolute": _absolute_url(post.get("photo_url")),
-        "cooked_on": post.get("cooked_on"),
-        "created_at": post.get("created_at"),
-        "updated_at": post.get("updated_at"),
-        "author": author_profile or {
-            "id": post.get("user_id"),
-            "name": post.get("author_name") or "User",
-            "email": None,
-            "photo_url": post.get("author_photo_url"),
-        },
-        "like_count": _social_like_count(post.get("id")),
-        "liked_by_me": liked_by_me,
-        "is_owner": _same_user_id(me_user_id, post.get("user_id")),
-    }
-
-
-@app.route('/social/posts/photo', methods=['POST'])
-def upload_social_photo():
-    user = _get_current_user()
-    if not user:
-        return jsonify({"error": "Unauthorized"}), 401
-    if "photo" not in request.files:
-        return jsonify({"error": "photo file is required"}), 400
-    photo = request.files["photo"]
-    if not photo or not photo.filename:
-        return jsonify({"error": "photo file is required"}), 400
-    if not _allowed_profile_file(photo.filename):
-        return jsonify({"error": "Unsupported file type. Use JPG, PNG, or WEBP"}), 400
-
-    photo.stream.seek(0, os.SEEK_END)
-    size = photo.stream.tell()
-    photo.stream.seek(0)
-    if size > MAX_SOCIAL_IMAGE_BYTES:
-        return jsonify({"error": "File too large. Max size is 8MB"}), 400
-
-    safe_name = secure_filename(photo.filename)
-    ext = safe_name.rsplit(".", 1)[1].lower()
-    filename = f"{user['user_id']}_{uuid.uuid4().hex[:12]}.{ext}"
-    path = os.path.join(SOCIAL_UPLOAD_DIR, filename)
-    photo.save(path)
-    photo_url = f"/uploads/social_photos/{filename}"
-    return jsonify({"photo_url": photo_url, "photo_url_absolute": _absolute_url(photo_url)})
-
-
-@app.route('/social/posts', methods=['GET', 'POST'])
-def social_posts():
-    user = _get_current_user()
-    if not user:
-        return jsonify({"error": "Unauthorized"}), 401
-
-    if request.method == "GET":
-        posts = sorted(SOCIAL_POSTS, key=lambda p: p.get("created_at", ""), reverse=True)
-        return jsonify([_serialize_social_post(p, user["user_id"]) for p in posts])
-
-    data = request.get_json() or {}
-    title = (data.get("title") or "").strip()
-    if not title:
-        return jsonify({"error": "title is required"}), 400
-    caption = (data.get("caption") or "").strip()[:1200]
-    ingredients = _normalize_text_lines(data.get("ingredients"))
-    steps = _normalize_text_lines(data.get("steps"))
-    cooked_on = (data.get("cooked_on") or "").strip()[:20] or None
-    photo_url = _normalize_social_photo_url(data.get("photo_url"))
-    if (data.get("photo_url") or "").strip() and not photo_url:
-        return jsonify({"error": "photo_url must be uploaded via /social/posts/photo"}), 400
-
-    author = _get_user_record_by_id(user["user_id"])
-    now = datetime.utcnow().isoformat() + "Z"
-    post = {
-        "id": _next_social_post_id(),
-        "user_id": user["user_id"],
-        "author_name": (author or {}).get("name"),
-        "author_photo_url": (author or {}).get("photo_url"),
-        "title": title[:120],
-        "caption": caption,
-        "ingredients": ingredients,
-        "steps": steps,
-        "photo_url": photo_url,
-        "cooked_on": cooked_on,
-        "created_at": now,
-        "updated_at": now,
-    }
-    SOCIAL_POSTS.append(post)
-    _log_activity(user["user_id"], "social_post_created", f"Shared recipe: {post['title']}", {"post_id": post["id"]})
-    return jsonify(_serialize_social_post(post, user["user_id"])), 201
-
-
-@app.route('/social/posts/<int:post_id>', methods=['PUT', 'DELETE'])
-def social_post_detail(post_id):
-    user = _get_current_user()
-    if not user:
-        return jsonify({"error": "Unauthorized"}), 401
-    post = next((p for p in SOCIAL_POSTS if p.get("id") == post_id), None)
-    if not post:
-        return jsonify({"error": "Post not found"}), 404
-    if not _same_user_id(post.get("user_id"), user["user_id"]):
-        return jsonify({"error": "Forbidden"}), 403
-
-    if request.method == "DELETE":
-        SOCIAL_POSTS.remove(post)
-        remaining_likes = [x for x in SOCIAL_LIKES if x.get("post_id") != post_id]
-        SOCIAL_LIKES.clear()
-        SOCIAL_LIKES.extend(remaining_likes)
-        if post.get("photo_url", "").startswith("/uploads/social_photos/"):
-            name = post["photo_url"].rsplit("/", 1)[-1]
-            old_path = os.path.join(SOCIAL_UPLOAD_DIR, name)
-            if os.path.isfile(old_path):
-                try:
-                    os.remove(old_path)
-                except OSError:
-                    pass
-        _log_activity(user["user_id"], "social_post_deleted", f"Deleted recipe: {post['title']}", {"post_id": post_id})
-        return jsonify({"success": True})
-
-    data = request.get_json() or {}
-    title = (data.get("title") or post.get("title") or "").strip()
-    if not title:
-        return jsonify({"error": "title is required"}), 400
-    post["title"] = title[:120]
-    post["caption"] = (data.get("caption") if "caption" in data else post.get("caption") or "").strip()[:1200]
-    if "ingredients" in data:
-        post["ingredients"] = _normalize_text_lines(data.get("ingredients"))
-    if "steps" in data:
-        post["steps"] = _normalize_text_lines(data.get("steps"))
-    if "cooked_on" in data:
-        cooked_on = (data.get("cooked_on") or "").strip()[:20]
-        post["cooked_on"] = cooked_on or None
-    if "photo_url" in data:
-        photo_url = _normalize_social_photo_url(data.get("photo_url"))
-        if (data.get("photo_url") or "").strip() and not photo_url:
-            return jsonify({"error": "photo_url must be uploaded via /social/posts/photo"}), 400
-        post["photo_url"] = photo_url or None
-    post["updated_at"] = datetime.utcnow().isoformat() + "Z"
-    _log_activity(user["user_id"], "social_post_updated", f"Updated recipe: {post['title']}", {"post_id": post_id})
-    return jsonify(_serialize_social_post(post, user["user_id"]))
-
-
-@app.route('/social/posts/<int:post_id>/like', methods=['POST'])
-def social_post_like(post_id):
-    user = _get_current_user()
-    if not user:
-        return jsonify({"error": "Unauthorized"}), 401
-    post = next((p for p in SOCIAL_POSTS if p.get("id") == post_id), None)
-    if not post:
-        return jsonify({"error": "Post not found"}), 404
-
-    existing = next(
-        (
-            x for x in SOCIAL_LIKES
-            if x.get("post_id") == post_id and x.get("user_id") == user["user_id"]
-        ),
-        None,
-    )
-    if existing:
-        SOCIAL_LIKES.remove(existing)
-        liked = False
-    else:
-        SOCIAL_LIKES.append(
-            {
-                "post_id": post_id,
-                "user_id": user["user_id"],
-                "created_at": datetime.utcnow().isoformat() + "Z",
-            }
-        )
-        liked = True
-
-    return jsonify(
-        {
-            "post_id": post_id,
-            "liked": liked,
-            "like_count": _social_like_count(post_id),
-        }
-    )
-
+# =============================================================================
+# FEATURE 2: PROFILE
+# =============================================================================
 
 @app.route('/profile', methods=['GET', 'PUT'])
 def profile():
@@ -862,7 +513,6 @@ def upload_profile_photo():
     path = os.path.join(PROFILE_UPLOAD_DIR, filename)
     photo.save(path)
 
-    # Remove old photo file to avoid unbounded local growth.
     old_url = user_record.get("photo_url")
     if old_url and old_url.startswith("/uploads/profile_photos/"):
         old_name = old_url.rsplit("/", 1)[-1]
@@ -876,6 +526,53 @@ def upload_profile_photo():
     user_record["photo_url"] = f"/uploads/profile_photos/{filename}"
     _log_activity(user["user_id"], "profile_photo_updated", "Updated profile photo", {"photo_url": user_record["photo_url"]})
     return jsonify(_user_to_profile(user_record))
+
+
+# =============================================================================
+# FEATURE 3: PANTRY MANAGEMENT (Items, Stats, Consume, Undo, Reminders, Activity)
+# =============================================================================
+
+def _compute_stats(items):
+    today = datetime.now().date()
+    total = len(items)
+    fresh = expiring_soon = expired = 0
+    for item in items:
+        try:
+            expiry_date = datetime.strptime(item["expiry"], "%Y-%m-%d").date()
+        except (ValueError, KeyError):
+            continue
+        days = (expiry_date - today).days
+        if days < 0:
+            expired += 1
+        elif days <= 3:
+            expiring_soon += 1
+        else:
+            fresh += 1
+    return {
+        "total_items": total,
+        "fresh": fresh,
+        "expiring_soon": expiring_soon,
+        "expired": expired,
+    }
+
+
+def _compute_reminders(items):
+    today = datetime.now().date()
+    reminders = {"expired": [], "today": [], "soon": []}
+    for item in items:
+        try:
+            expiry_date = datetime.strptime(item["expiry"], "%Y-%m-%d").date()
+        except (ValueError, KeyError):
+            continue
+        days = (expiry_date - today).days
+        row = {"id": item["id"], "name": item["name"], "expiry": item["expiry"], "days_remaining": days}
+        if days < 0:
+            reminders["expired"].append(row)
+        elif days == 0:
+            reminders["today"].append(row)
+        elif days <= 2:
+            reminders["soon"].append(row)
+    return reminders
 
 
 @app.route('/items', methods=['GET'])
@@ -1078,179 +775,10 @@ def get_activity():
     return jsonify(events[:50])
 
 
-@app.route('/shopping-list', methods=['GET', 'POST', 'DELETE'])
-def shopping_list():
-    user = _get_current_user()
-    if not user:
-        return jsonify({"error": "Unauthorized"}), 401
-    scope_user_ids = _get_scope_user_ids(user["user_id"])
-    if request.method == "GET":
-        items = [i for i in SHOPPING_LIST_ITEMS if i.get("owner_user_id") in scope_user_ids]
-        items.sort(key=lambda x: x.get("created_at", ""), reverse=True)
-        return jsonify(items)
+# =============================================================================
+# FEATURE 4: BARCODE SCANNING (FatSecret + Open Food Facts)
+# =============================================================================
 
-    if request.method == "POST":
-        data = request.get_json() or {}
-        name = (data.get("name") or "").strip()
-        if not name:
-            return jsonify({"error": "name is required"}), 400
-        item = {
-            "id": str(uuid.uuid4()),
-            "owner_user_id": user["user_id"],
-            "name": name,
-            "quantity": data.get("quantity") or 1,
-            "checked": bool(data.get("checked", False)),
-            "source": data.get("source") or "manual",
-            "created_at": datetime.utcnow().isoformat() + "Z",
-        }
-        SHOPPING_LIST_ITEMS.append(item)
-        _log_activity(user["user_id"], "shopping_item_added", f"Added {name} to shopping list", {"name": name})
-        return jsonify(item), 201
-
-    item_id = request.args.get("id")
-    if not item_id:
-        return jsonify({"error": "id query param required"}), 400
-    for i, item in enumerate(SHOPPING_LIST_ITEMS):
-        if item.get("id") == item_id and item.get("owner_user_id") in scope_user_ids:
-            SHOPPING_LIST_ITEMS.pop(i)
-            _log_activity(user["user_id"], "shopping_item_removed", f"Removed {item.get('name')} from shopping list", {"name": item.get("name")})
-            return jsonify({"success": True})
-    return jsonify({"error": "Shopping item not found"}), 404
-
-
-@app.route('/shopping-list/from-recipe', methods=['POST'])
-def add_missing_from_recipe():
-    user = _get_current_user()
-    if not user:
-        return jsonify({"error": "Unauthorized"}), 401
-    data = request.get_json() or {}
-    missing = data.get("missing_ingredients") or []
-    created = []
-    for name in missing:
-        n = (name or "").strip()
-        if not n:
-            continue
-        item = {
-            "id": str(uuid.uuid4()),
-            "owner_user_id": user["user_id"],
-            "name": n,
-            "quantity": 1,
-            "checked": False,
-            "source": "recipe",
-            "created_at": datetime.utcnow().isoformat() + "Z",
-        }
-        SHOPPING_LIST_ITEMS.append(item)
-        created.append(item)
-    if created:
-        _log_activity(user["user_id"], "shopping_recipe_added", f"Added {len(created)} recipe items to shopping list", {"count": len(created)})
-    return jsonify({"success": True, "created": created})
-
-
-@app.route('/shopping-list/suggestions', methods=['GET'])
-def shopping_suggestions():
-    user = _get_current_user()
-    if not user:
-        return jsonify({"error": "Unauthorized"}), 401
-    return jsonify(_compute_reorder_suggestions(user["user_id"]))
-
-
-@app.route('/insights/weekly', methods=['GET'])
-def weekly_insights():
-    user = _get_current_user()
-    if not user:
-        return jsonify({"error": "Unauthorized"}), 401
-    return jsonify(_compute_weekly_insights(user["user_id"]))
-
-
-@app.route('/household', methods=['GET', 'POST'])
-def household():
-    user = _get_current_user()
-    if not user:
-        return jsonify({"error": "Unauthorized"}), 401
-    if request.method == "GET":
-        household_id = USER_HOUSEHOLD.get(user["user_id"])
-        if not household_id:
-            return jsonify({"joined": False, "household": None})
-        hh = HOUSEHOLDS.get(household_id)
-        if not hh:
-            return jsonify({"joined": False, "household": None})
-        members = []
-        for uid in hh.get("members", []):
-            match = next((u for u in USERS.values() if u.get("id") == uid), None)
-            members.append({"user_id": uid, "email": match.get("email") if match else f"user-{uid}"})
-        return jsonify({"joined": True, "household": {**hh, "members": members}})
-
-    data = request.get_json() or {}
-    name = (data.get("name") or "").strip() or "My Household"
-    if USER_HOUSEHOLD.get(user["user_id"]):
-        return jsonify({"error": "Already in a household"}), 409
-    hid = _next_household_id()
-    HOUSEHOLDS[hid] = {"id": hid, "name": name, "owner_id": user["user_id"], "members": [user["user_id"]]}
-    USER_HOUSEHOLD[user["user_id"]] = hid
-    USER_SHARE_MODE.setdefault(user["user_id"], False)
-    _log_activity(user["user_id"], "household_created", f"Created household {name}", {"household_id": hid})
-    return jsonify({"success": True, "household": HOUSEHOLDS[hid]}), 201
-
-
-@app.route('/household/invite', methods=['POST'])
-def household_invite():
-    user = _get_current_user()
-    if not user:
-        return jsonify({"error": "Unauthorized"}), 401
-    household_id = USER_HOUSEHOLD.get(user["user_id"])
-    if not household_id:
-        return jsonify({"error": "Create household first"}), 400
-    code = uuid.uuid4().hex[:8].upper()
-    INVITES[code] = {"household_id": household_id, "created_by": user["user_id"], "created_at": datetime.utcnow().isoformat() + "Z"}
-    return jsonify({"success": True, "invite_code": code})
-
-
-@app.route('/household/sharing', methods=['GET', 'PUT'])
-def household_sharing():
-    user = _get_current_user()
-    if not user:
-        return jsonify({"error": "Unauthorized"}), 401
-    user_id = user["user_id"]
-
-    if request.method == "GET":
-        return jsonify({"enabled": bool(USER_SHARE_MODE.get(user_id, False))})
-
-    data = request.get_json() or {}
-    enabled = bool(data.get("enabled", False))
-    USER_SHARE_MODE[user_id] = enabled
-    _log_activity(
-        user_id,
-        "household_share_mode_updated",
-        f"Shared pantry mode {'enabled' if enabled else 'disabled'}",
-        {"enabled": enabled},
-    )
-    return jsonify({"success": True, "enabled": enabled})
-
-
-@app.route('/household/accept', methods=['POST'])
-def household_accept():
-    user = _get_current_user()
-    if not user:
-        return jsonify({"error": "Unauthorized"}), 401
-    data = request.get_json() or {}
-    code = (data.get("invite_code") or "").strip().upper()
-    invite = INVITES.get(code)
-    if not invite:
-        return jsonify({"error": "Invalid invite code"}), 404
-    household_id = invite["household_id"]
-    hh = HOUSEHOLDS.get(household_id)
-    if not hh:
-        return jsonify({"error": "Household not found"}), 404
-    if USER_HOUSEHOLD.get(user["user_id"]) == household_id:
-        return jsonify({"success": True, "already_joined": True})
-    hh["members"] = list(set(hh.get("members", []) + [user["user_id"]]))
-    USER_HOUSEHOLD[user["user_id"]] = household_id
-    USER_SHARE_MODE.setdefault(user["user_id"], False)
-    _log_activity(user["user_id"], "household_joined", f"Joined household {hh['name']}", {"household_id": household_id})
-    return jsonify({"success": True, "household": hh})
-
-
-# ---------- Barcode: FatSecret (optional) + Open Food Facts (fallback) ----------
 def _normalize_barcode_gtin13(barcode):
     """FatSecret expects GTIN-13. UPC-A 12 digits -> leading 0; EAN-8 -> left-pad to 13."""
     s = "".join(c for c in str(barcode) if c.isdigit())
@@ -1263,6 +791,7 @@ def _normalize_barcode_gtin13(barcode):
     if len(s) == 14:
         return s[-13:]
     return s
+
 
 def _fatsecret_get_token():
     """OAuth2 client_credentials token for FatSecret. Cached in process."""
@@ -1290,6 +819,7 @@ def _fatsecret_get_token():
         return _FATSECRET_TOKEN
     except Exception:
         return None
+
 
 def _lookup_barcode_fatsecret(barcode):
     """Call FatSecret food.find_id_for_barcode.v2. Returns our shape or None."""
@@ -1329,6 +859,7 @@ def _lookup_barcode_fatsecret(barcode):
         }
     except Exception:
         return None
+
 
 def _off_category_from_product(p):
     """Map OFF categories / tags to our pantry category."""
@@ -1392,9 +923,9 @@ def _lookup_barcode_openfoodfacts(barcode):
     except Exception:
         return None
 
+
 @app.route('/barcode/<barcode>')
 def lookup_barcode(barcode):
-    # Try FatSecret first if configured, then Open Food Facts
     result = _lookup_barcode_fatsecret(barcode)
     if result is None:
         result = _lookup_barcode_openfoodfacts(barcode)
@@ -1403,48 +934,9 @@ def lookup_barcode(barcode):
     return jsonify(result)
 
 
-# ---------- Recipes (advanced: dietary, time, cuisine) ----------
-@app.route('/recipes/generate', methods=['POST'])
-def generate_recipe():
-    try:
-        data = request.get_json() or {}
-        items = data.get('items', [])
-        dietary = data.get('dietary', '')  # e.g. vegetarian, vegan, gluten-free
-        max_time_min = data.get('max_time_minutes')  # optional
-        cuisine = data.get('cuisine', '')  # e.g. Italian, Asian
-
-        today = datetime.now().date()
-        expiring = []
-        fresh = []
-        for item in items:
-            try:
-                expiry_date = datetime.strptime(item["expiry"], "%Y-%m-%d").date()
-            except (ValueError, KeyError):
-                continue
-            days = (expiry_date - today).days
-            entry = {**item, "days_remaining": days}
-            if days <= 3:
-                expiring.append(entry)
-            else:
-                fresh.append(entry)
-        expiring.sort(key=lambda x: x["days_remaining"])
-        prioritized = expiring + fresh
-
-        items_by_cat = {}
-        for item in prioritized[:10]:
-            cat = item.get("category", "Other")
-            items_by_cat.setdefault(cat, []).append(item)
-
-        recipe = generate_recipe_from_items(prioritized[:5], items_by_cat, dietary, max_time_min, cuisine)
-        return jsonify({
-            "success": True,
-            "recipe": recipe,
-            "prioritized_items": prioritized[:5],
-            "expiring_count": len(expiring),
-        })
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
-
+# =============================================================================
+# FEATURE 5: RECIPE GENERATION
+# =============================================================================
 
 def _safe_float(v, fallback=1.0):
     try:
@@ -1656,10 +1148,557 @@ def generate_recipe_from_items(items, items_by_category, dietary, max_time_min, 
     }
 
 
+@app.route('/recipes/generate', methods=['POST'])
+def generate_recipe():
+    try:
+        data = request.get_json() or {}
+        items = data.get('items', [])
+        dietary = data.get('dietary', '')
+        max_time_min = data.get('max_time_minutes')
+        cuisine = data.get('cuisine', '')
+
+        today = datetime.now().date()
+        expiring = []
+        fresh = []
+        for item in items:
+            try:
+                expiry_date = datetime.strptime(item["expiry"], "%Y-%m-%d").date()
+            except (ValueError, KeyError):
+                continue
+            days = (expiry_date - today).days
+            entry = {**item, "days_remaining": days}
+            if days <= 3:
+                expiring.append(entry)
+            else:
+                fresh.append(entry)
+        expiring.sort(key=lambda x: x["days_remaining"])
+        prioritized = expiring + fresh
+
+        items_by_cat = {}
+        for item in prioritized[:10]:
+            cat = item.get("category", "Other")
+            items_by_cat.setdefault(cat, []).append(item)
+
+        recipe = generate_recipe_from_items(prioritized[:5], items_by_cat, dietary, max_time_min, cuisine)
+        return jsonify({
+            "success": True,
+            "recipe": recipe,
+            "prioritized_items": prioritized[:5],
+            "expiring_count": len(expiring),
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# =============================================================================
+# FEATURE 6: SOCIAL RECIPE SHARING (Share Page)
+# =============================================================================
+
+def _normalize_text_lines(value):
+    if isinstance(value, str):
+        parts = [x.strip() for x in value.splitlines()]
+    elif isinstance(value, list):
+        parts = [str(x).strip() for x in value]
+    else:
+        parts = []
+    return [p[:200] for p in parts if p][:20]
+
+
+def _social_like_count(post_id):
+    return len([x for x in SOCIAL_LIKES if x.get("post_id") == post_id])
+
+
+def _normalize_social_photo_url(value):
+    raw = (value or "").strip()
+    if not raw:
+        return None
+    if raw.startswith("/uploads/social_photos/"):
+        return raw[:300]
+    if raw.startswith("http://") or raw.startswith("https://"):
+        marker = "/uploads/social_photos/"
+        idx = raw.find(marker)
+        if idx != -1:
+            return raw[idx:idx + 300]
+    return None
+
+
+def _serialize_social_post(post, me_user_id=None):
+    author = _get_user_record_by_id(post.get("user_id"))
+    author_profile = _user_to_profile(author) if author else None
+    liked_by_me = any(
+        x for x in SOCIAL_LIKES
+        if x.get("post_id") == post.get("id") and x.get("user_id") == me_user_id
+    )
+    return {
+        "id": post.get("id"),
+        "user_id": post.get("user_id"),
+        "title": post.get("title"),
+        "caption": post.get("caption"),
+        "ingredients": post.get("ingredients", []),
+        "steps": post.get("steps", []),
+        "photo_url": post.get("photo_url"),
+        "photo_url_absolute": _absolute_url(post.get("photo_url")),
+        "cooked_on": post.get("cooked_on"),
+        "created_at": post.get("created_at"),
+        "updated_at": post.get("updated_at"),
+        "author": author_profile or {
+            "id": post.get("user_id"),
+            "name": post.get("author_name") or "User",
+            "email": None,
+            "photo_url": post.get("author_photo_url"),
+        },
+        "like_count": _social_like_count(post.get("id")),
+        "liked_by_me": liked_by_me,
+        "is_owner": _same_user_id(me_user_id, post.get("user_id")),
+    }
+
+
+@app.route('/social/posts/photo', methods=['POST'])
+def upload_social_photo():
+    user = _get_current_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+    if "photo" not in request.files:
+        return jsonify({"error": "photo file is required"}), 400
+    photo = request.files["photo"]
+    if not photo or not photo.filename:
+        return jsonify({"error": "photo file is required"}), 400
+    if not _allowed_profile_file(photo.filename):
+        return jsonify({"error": "Unsupported file type. Use JPG, PNG, or WEBP"}), 400
+
+    photo.stream.seek(0, os.SEEK_END)
+    size = photo.stream.tell()
+    photo.stream.seek(0)
+    if size > MAX_SOCIAL_IMAGE_BYTES:
+        return jsonify({"error": "File too large. Max size is 8MB"}), 400
+
+    safe_name = secure_filename(photo.filename)
+    ext = safe_name.rsplit(".", 1)[1].lower()
+    filename = f"{user['user_id']}_{uuid.uuid4().hex[:12]}.{ext}"
+    path = os.path.join(SOCIAL_UPLOAD_DIR, filename)
+    photo.save(path)
+    photo_url = f"/uploads/social_photos/{filename}"
+    return jsonify({"photo_url": photo_url, "photo_url_absolute": _absolute_url(photo_url)})
+
+
+@app.route('/social/posts', methods=['GET', 'POST'])
+def social_posts():
+    user = _get_current_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    if request.method == "GET":
+        posts = sorted(SOCIAL_POSTS, key=lambda p: p.get("created_at", ""), reverse=True)
+        return jsonify([_serialize_social_post(p, user["user_id"]) for p in posts])
+
+    data = request.get_json() or {}
+    title = (data.get("title") or "").strip()
+    if not title:
+        return jsonify({"error": "title is required"}), 400
+    caption = (data.get("caption") or "").strip()[:1200]
+    ingredients = _normalize_text_lines(data.get("ingredients"))
+    steps = _normalize_text_lines(data.get("steps"))
+    cooked_on = (data.get("cooked_on") or "").strip()[:20] or None
+    photo_url = _normalize_social_photo_url(data.get("photo_url"))
+    if (data.get("photo_url") or "").strip() and not photo_url:
+        return jsonify({"error": "photo_url must be uploaded via /social/posts/photo"}), 400
+
+    author = _get_user_record_by_id(user["user_id"])
+    now = datetime.utcnow().isoformat() + "Z"
+    post = {
+        "id": _next_social_post_id(),
+        "user_id": user["user_id"],
+        "author_name": (author or {}).get("name"),
+        "author_photo_url": (author or {}).get("photo_url"),
+        "title": title[:120],
+        "caption": caption,
+        "ingredients": ingredients,
+        "steps": steps,
+        "photo_url": photo_url,
+        "cooked_on": cooked_on,
+        "created_at": now,
+        "updated_at": now,
+    }
+    SOCIAL_POSTS.append(post)
+    _log_activity(user["user_id"], "social_post_created", f"Shared recipe: {post['title']}", {"post_id": post["id"]})
+    return jsonify(_serialize_social_post(post, user["user_id"])), 201
+
+
+@app.route('/social/posts/<int:post_id>', methods=['PUT', 'DELETE'])
+def social_post_detail(post_id):
+    user = _get_current_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+    post = next((p for p in SOCIAL_POSTS if p.get("id") == post_id), None)
+    if not post:
+        return jsonify({"error": "Post not found"}), 404
+    if not _same_user_id(post.get("user_id"), user["user_id"]):
+        return jsonify({"error": "Forbidden"}), 403
+
+    if request.method == "DELETE":
+        SOCIAL_POSTS.remove(post)
+        remaining_likes = [x for x in SOCIAL_LIKES if x.get("post_id") != post_id]
+        SOCIAL_LIKES.clear()
+        SOCIAL_LIKES.extend(remaining_likes)
+        if post.get("photo_url", "").startswith("/uploads/social_photos/"):
+            name = post["photo_url"].rsplit("/", 1)[-1]
+            old_path = os.path.join(SOCIAL_UPLOAD_DIR, name)
+            if os.path.isfile(old_path):
+                try:
+                    os.remove(old_path)
+                except OSError:
+                    pass
+        _log_activity(user["user_id"], "social_post_deleted", f"Deleted recipe: {post['title']}", {"post_id": post_id})
+        return jsonify({"success": True})
+
+    data = request.get_json() or {}
+    title = (data.get("title") or post.get("title") or "").strip()
+    if not title:
+        return jsonify({"error": "title is required"}), 400
+    post["title"] = title[:120]
+    post["caption"] = (data.get("caption") if "caption" in data else post.get("caption") or "").strip()[:1200]
+    if "ingredients" in data:
+        post["ingredients"] = _normalize_text_lines(data.get("ingredients"))
+    if "steps" in data:
+        post["steps"] = _normalize_text_lines(data.get("steps"))
+    if "cooked_on" in data:
+        cooked_on = (data.get("cooked_on") or "").strip()[:20]
+        post["cooked_on"] = cooked_on or None
+    if "photo_url" in data:
+        photo_url = _normalize_social_photo_url(data.get("photo_url"))
+        if (data.get("photo_url") or "").strip() and not photo_url:
+            return jsonify({"error": "photo_url must be uploaded via /social/posts/photo"}), 400
+        post["photo_url"] = photo_url or None
+    post["updated_at"] = datetime.utcnow().isoformat() + "Z"
+    _log_activity(user["user_id"], "social_post_updated", f"Updated recipe: {post['title']}", {"post_id": post_id})
+    return jsonify(_serialize_social_post(post, user["user_id"]))
+
+
+@app.route('/social/posts/<int:post_id>/like', methods=['POST'])
+def social_post_like(post_id):
+    user = _get_current_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+    post = next((p for p in SOCIAL_POSTS if p.get("id") == post_id), None)
+    if not post:
+        return jsonify({"error": "Post not found"}), 404
+
+    existing = next(
+        (
+            x for x in SOCIAL_LIKES
+            if x.get("post_id") == post_id and x.get("user_id") == user["user_id"]
+        ),
+        None,
+    )
+    if existing:
+        SOCIAL_LIKES.remove(existing)
+        liked = False
+    else:
+        SOCIAL_LIKES.append(
+            {
+                "post_id": post_id,
+                "user_id": user["user_id"],
+                "created_at": datetime.utcnow().isoformat() + "Z",
+            }
+        )
+        liked = True
+
+    return jsonify(
+        {
+            "post_id": post_id,
+            "liked": liked,
+            "like_count": _social_like_count(post_id),
+        }
+    )
+
+
+# =============================================================================
+# FEATURE 7: SHOPPING LIST
+# =============================================================================
+
+def _compute_reorder_suggestions(user_id):
+    consumed_counts = {}
+    scope_user_ids = _get_scope_user_ids(user_id)
+    for ev in ACTIVITY_EVENTS:
+        if ev.get("type") != "item_consumed" or ev.get("user_id") not in scope_user_ids:
+            continue
+        name = (ev.get("payload", {}).get("item_name") or "").strip()
+        if not name:
+            continue
+        consumed_counts[name] = consumed_counts.get(name, 0) + 1
+
+    scoped_items = [i for i in PANTRY_ITEMS if i.get("user_id") in scope_user_ids]
+    suggestions = []
+    for name, count in sorted(consumed_counts.items(), key=lambda x: x[1], reverse=True):
+        matching = [i for i in scoped_items if (i.get("name") or "").lower() == name.lower()]
+        qty = sum((float(i.get("quantity", 0) or 0) for i in matching))
+        if count >= 2 and qty <= 1:
+            suggestions.append({"name": name, "reason": "Frequently used and running low", "consumed_count": count})
+    return suggestions[:5]
+
+
+@app.route('/shopping-list', methods=['GET', 'POST', 'DELETE'])
+def shopping_list():
+    user = _get_current_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+    scope_user_ids = _get_scope_user_ids(user["user_id"])
+    if request.method == "GET":
+        items = [i for i in SHOPPING_LIST_ITEMS if i.get("owner_user_id") in scope_user_ids]
+        items.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+        return jsonify(items)
+
+    if request.method == "POST":
+        data = request.get_json() or {}
+        name = (data.get("name") or "").strip()
+        if not name:
+            return jsonify({"error": "name is required"}), 400
+        item = {
+            "id": str(uuid.uuid4()),
+            "owner_user_id": user["user_id"],
+            "name": name,
+            "quantity": data.get("quantity") or 1,
+            "checked": bool(data.get("checked", False)),
+            "source": data.get("source") or "manual",
+            "created_at": datetime.utcnow().isoformat() + "Z",
+        }
+        SHOPPING_LIST_ITEMS.append(item)
+        _log_activity(user["user_id"], "shopping_item_added", f"Added {name} to shopping list", {"name": name})
+        return jsonify(item), 201
+
+    item_id = request.args.get("id")
+    if not item_id:
+        return jsonify({"error": "id query param required"}), 400
+    for i, item in enumerate(SHOPPING_LIST_ITEMS):
+        if item.get("id") == item_id and item.get("owner_user_id") in scope_user_ids:
+            SHOPPING_LIST_ITEMS.pop(i)
+            _log_activity(user["user_id"], "shopping_item_removed", f"Removed {item.get('name')} from shopping list", {"name": item.get("name")})
+            return jsonify({"success": True})
+    return jsonify({"error": "Shopping item not found"}), 404
+
+
+@app.route('/shopping-list/from-recipe', methods=['POST'])
+def add_missing_from_recipe():
+    user = _get_current_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+    data = request.get_json() or {}
+    missing = data.get("missing_ingredients") or []
+    created = []
+    for name in missing:
+        n = (name or "").strip()
+        if not n:
+            continue
+        item = {
+            "id": str(uuid.uuid4()),
+            "owner_user_id": user["user_id"],
+            "name": n,
+            "quantity": 1,
+            "checked": False,
+            "source": "recipe",
+            "created_at": datetime.utcnow().isoformat() + "Z",
+        }
+        SHOPPING_LIST_ITEMS.append(item)
+        created.append(item)
+    if created:
+        _log_activity(user["user_id"], "shopping_recipe_added", f"Added {len(created)} recipe items to shopping list", {"count": len(created)})
+    return jsonify({"success": True, "created": created})
+
+
+@app.route('/shopping-list/suggestions', methods=['GET'])
+def shopping_suggestions():
+    user = _get_current_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+    return jsonify(_compute_reorder_suggestions(user["user_id"]))
+
+
+# =============================================================================
+# FEATURE 8: WEEKLY INSIGHTS
+# =============================================================================
+
+def _compute_weekly_insights(user_id):
+    scope_user_ids = _get_scope_user_ids(user_id)
+    since = datetime.utcnow() - timedelta(days=7)
+    recent = []
+    for ev in ACTIVITY_EVENTS:
+        if ev.get("user_id") not in scope_user_ids:
+            continue
+        created_at = ev.get("created_at", "").replace("Z", "")
+        try:
+            stamp = datetime.fromisoformat(created_at)
+        except ValueError:
+            continue
+        if stamp >= since:
+            recent.append(ev)
+
+    consumed = len([e for e in recent if e.get("type") == "item_consumed"])
+    expired = len([e for e in recent if e.get("type") == "item_expired_removed"])
+    saved = len([e for e in recent if e.get("type") == "item_consumed_before_expiry"])
+
+    waste_by_category = {}
+    for e in recent:
+        if e.get("type") != "item_expired_removed":
+            continue
+        cat = e.get("payload", {}).get("category") or "Other"
+        waste_by_category[cat] = waste_by_category.get(cat, 0) + 1
+
+    top_wasted = [{"category": k, "count": v} for k, v in sorted(waste_by_category.items(), key=lambda x: x[1], reverse=True)[:5]]
+    return {
+        "consumed_before_expiry": saved,
+        "expired_count": expired,
+        "consumed_count": consumed,
+        "saved_items_this_week": saved,
+        "top_wasted_categories": top_wasted,
+    }
+
+
+@app.route('/insights/weekly', methods=['GET'])
+def weekly_insights():
+    user = _get_current_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+    return jsonify(_compute_weekly_insights(user["user_id"]))
+
+
+# =============================================================================
+# FEATURE 9: HOUSEHOLD COLLABORATION
+# =============================================================================
+
+@app.route('/household', methods=['GET', 'POST'])
+def household():
+    user = _get_current_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+    if request.method == "GET":
+        household_id = USER_HOUSEHOLD.get(user["user_id"])
+        if not household_id:
+            return jsonify({"joined": False, "household": None})
+        hh = HOUSEHOLDS.get(household_id)
+        if not hh:
+            return jsonify({"joined": False, "household": None})
+        members = []
+        for uid in hh.get("members", []):
+            match = next((u for u in USERS.values() if u.get("id") == uid), None)
+            members.append({"user_id": uid, "email": match.get("email") if match else f"user-{uid}"})
+        return jsonify({"joined": True, "household": {**hh, "members": members}})
+
+    data = request.get_json() or {}
+    name = (data.get("name") or "").strip() or "My Household"
+    if USER_HOUSEHOLD.get(user["user_id"]):
+        return jsonify({"error": "Already in a household"}), 409
+    hid = _next_household_id()
+    HOUSEHOLDS[hid] = {"id": hid, "name": name, "owner_id": user["user_id"], "members": [user["user_id"]]}
+    USER_HOUSEHOLD[user["user_id"]] = hid
+    USER_SHARE_MODE.setdefault(user["user_id"], False)
+    _log_activity(user["user_id"], "household_created", f"Created household {name}", {"household_id": hid})
+    return jsonify({"success": True, "household": HOUSEHOLDS[hid]}), 201
+
+
+@app.route('/household/invite', methods=['POST'])
+def household_invite():
+    user = _get_current_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+    household_id = USER_HOUSEHOLD.get(user["user_id"])
+    if not household_id:
+        return jsonify({"error": "Create household first"}), 400
+    code = uuid.uuid4().hex[:8].upper()
+    INVITES[code] = {"household_id": household_id, "created_by": user["user_id"], "created_at": datetime.utcnow().isoformat() + "Z"}
+    return jsonify({"success": True, "invite_code": code})
+
+
+@app.route('/household/sharing', methods=['GET', 'PUT'])
+def household_sharing():
+    user = _get_current_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+    user_id = user["user_id"]
+
+    if request.method == "GET":
+        return jsonify({"enabled": bool(USER_SHARE_MODE.get(user_id, False))})
+
+    data = request.get_json() or {}
+    enabled = bool(data.get("enabled", False))
+    USER_SHARE_MODE[user_id] = enabled
+    _log_activity(
+        user_id,
+        "household_share_mode_updated",
+        f"Shared pantry mode {'enabled' if enabled else 'disabled'}",
+        {"enabled": enabled},
+    )
+    return jsonify({"success": True, "enabled": enabled})
+
+
+@app.route('/household/accept', methods=['POST'])
+def household_accept():
+    user = _get_current_user()
+    if not user:
+        return jsonify({"error": "Unauthorized"}), 401
+    data = request.get_json() or {}
+    code = (data.get("invite_code") or "").strip().upper()
+    invite = INVITES.get(code)
+    if not invite:
+        return jsonify({"error": "Invalid invite code"}), 404
+    household_id = invite["household_id"]
+    hh = HOUSEHOLDS.get(household_id)
+    if not hh:
+        return jsonify({"error": "Household not found"}), 404
+    if USER_HOUSEHOLD.get(user["user_id"]) == household_id:
+        return jsonify({"success": True, "already_joined": True})
+    hh["members"] = list(set(hh.get("members", []) + [user["user_id"]]))
+    USER_HOUSEHOLD[user["user_id"]] = household_id
+    USER_SHARE_MODE.setdefault(user["user_id"], False)
+    _log_activity(user["user_id"], "household_joined", f"Joined household {hh['name']}", {"household_id": household_id})
+    return jsonify({"success": True, "household": hh})
+
+
+# =============================================================================
+# STATIC FILE SERVING
+# =============================================================================
+
+@app.route('/uploads/profile_photos/<path:filename>', methods=['GET'])
+def serve_profile_photo(filename):
+    return send_from_directory(PROFILE_UPLOAD_DIR, filename)
+
+
+@app.route('/uploads/social_photos/<path:filename>', methods=['GET'])
+def serve_social_photo(filename):
+    return send_from_directory(SOCIAL_UPLOAD_DIR, filename)
+
+
+# =============================================================================
+# CORS MIDDLEWARE & PERSISTENCE HOOKS
+# =============================================================================
+
+_ALLOWED_CORS_ORIGINS = frozenset(
+    {
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    }
+)
+
+
+@app.after_request
+def after_request(response):
+    """Ensure CORS headers on every response so preflight (OPTIONS) succeeds."""
+    origin = request.origin if request.origin else "*"
+    if origin in _ALLOWED_CORS_ORIGINS:
+        response.headers["Access-Control-Allow-Origin"] = origin
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    response.headers["Access-Control-Max-Age"] = "86400"
+    if request.method in ("POST", "PUT", "DELETE") and 200 <= response.status_code < 400:
+        _save_state_snapshot()
+    return response
+
+
 @app.after_request
 def _echo_origin_cors_headers(resp):
     """
-    Dev-friendly CORS fallback: if preflight responses lose `Access-Control-Allow-Origin`,
+    Dev-friendly CORS fallback: if preflight responses lose Access-Control-Allow-Origin,
     echo back the request Origin so the browser can accept the response.
     """
     origin = request.headers.get("Origin")
@@ -1679,6 +1718,31 @@ def _echo_origin_cors_headers(resp):
         resp.headers.setdefault("Access-Control-Max-Age", "86400")
 
     return resp
+
+
+# =============================================================================
+# API ROOT & ENTRY POINT
+# =============================================================================
+
+@app.route('/')
+def home():
+    return jsonify({
+        "message": "Welcome to WiseBite API!",
+        "version": "1.0.0",
+        "endpoints": {
+            "/auth/signup": "POST sign up (email, password)",
+            "/auth/login": "POST sign in (email, password)",
+            "/profile": "GET/PUT profile details",
+            "/profile/photo": "POST upload profile photo",
+            "/social/posts": "GET feed, POST create social recipe post",
+            "/social/posts/photo": "POST upload social post photo",
+            "/items": "GET all, POST add",
+            "/items/<id>": "GET one, DELETE one",
+            "/stats": "GET dashboard statistics",
+            "/barcode/<code>": "GET product by barcode (FatSecret if configured, else Open Food Facts)",
+            "/recipes/generate": "POST generate recipe",
+        }
+    })
 
 
 if __name__ == '__main__':
